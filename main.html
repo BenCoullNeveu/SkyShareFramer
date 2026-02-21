@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no">
+  <title>FoV Overlay (Aladin Lite)</title>
+  <style>
+    :root { --bg:#0b0f19; --panel:#121a2b; --text:rgba(255, 255, 255, 0.9); --muted:rgba(255, 255, 255, 0.9); --border:rgba(207, 183, 255, 0.39);}
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .app {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: 100%;
+    }
+    .panel {
+      background: linear-gradient(180deg, rgba(81, 81, 81, 0.98), rgba(81, 81, 81, 0.98));
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      overflow: auto;
+    }
+    .panel h1 { font-size: 16px; margin: 0 0 12px 0; letter-spacing: 0.2px; }
+    .group { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    .group h2 { font-size: 13px; margin: 0 0 10px 0; color: var(--muted); font-weight: 600; }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 6px; }
+    input, select {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--border);
+      background: rgba(19, 19, 19, 0.6);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 10px;
+      outline: none;
+      font-size: 13px;
+    }
+    input:focus, select:focus { border-color: #fdfdfd; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+
+    .checkboxrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .checkboxrow input[type="checkbox"] {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: rgba(19, 19, 19, 0.6);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .checkboxrow input[type="checkbox"]:checked {
+      background: #00e5ff;
+      border-color: #00e5ff;
+    }
+
+    .checkboxrow input[type="checkbox"]:checked::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 4px;
+      height: 8px;
+      border: solid #000;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    .checkboxrow label {
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: rgba(10,14,26,0.8);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    button:hover { border-color: #ffffff; }
+    .readout {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    #aladin-lite-div { width: 100%; height: 100%; }
+    .footer { font-size: 11px; color: var(--muted); margin-top: 10px; }
+    .footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>SkyShare Astro Framing Tool</h1>
+
+      <div class="group">
+        <h2>Target / Center</h2>
+        <label for="targetName">Object name</label>
+        <input id="targetName" type="text" value="M42" placeholder="e.g. M31, NGC 7000, Betelgeuse" />
+
+        <div class="row">
+          <div>
+            <label for="raDeg">RA (deg)</label>
+            <input id="raDeg" type="number" step="any" value="83.822" />
+          </div>
+          <div>
+            <label for="decDeg">Dec (deg)</label>
+            <input id="decDeg" type="number" step="any" value="-5.391" />
+          </div>
+        </div>
+
+        <div class="btnrow">
+          <button id="btnGotoName">Go to name</button>
+          <button id="btnGotoRaDec">Go to RA/Dec</button>
+        </div>
+
+        <div class="btnrow">
+            <button id="updateRaDec" style="background: rgba(10,14,26,0.8);">Update RA/Dec</button>
+            <button id="copyFraming">Copy Framing</button>
+        </div>
+
+        <div class="checkboxrow">
+          <input id="followView" type="checkbox" />
+          <label for="followView">Follow view</label>
+        </div>
+          
+
+
+        <div class="hint">Tip: pan/zoom in Aladin; the overlay stays centered on the current view center unless you “Go to …”.</div>
+      </div>
+
+      <div class="group">
+        <h2>Telescope</h2>
+        <label for="setupName">Setup</label>
+        <select id="setupName">
+          <option value="Esprit100 & IMX571" selected>Esprit100 & IMX571 [Pier 1]</option>
+          <option value="Custom">Samyang135 & SonyA7iii [Pier 2]</option>
+        </select>
+
+
+        <div id='Esprit100-IMX571-params'>
+          <label for="focalLength">Focal length (mm) *</label>
+            <input id="focalLength" type="number" step="any" value="550" disabled />
+          <div class="row">
+            <div>
+              <label for="sensorW">Sensor width (mm) *</label>
+              <input id="sensorW" type="number" step="any" value="23.5" disabled/>
+            </div>
+            <div>
+              <label for="sensorH">Sensor height (mm) *</label>
+              <input id="sensorH" type="number" step="any" value="15.7" disabled/>
+            </div>
+          </div>
+          <label for="pixSize">Pixel size (µm) *</label>
+            <input id="pixSize" type="number" step="any" value="3.76" disabled />
+          <div class="row">
+            <div>
+              <label for="nx">Resolution NX (px) *</label>
+              <input id="nx" type="number" step="1" value="6248" disabled/>
+            </div>
+            <div>
+              <label for="ny">Resolution NY (px) *</label>
+              <input id="ny" type="number" step="1" value="4176" disabled/>
+            </div>
+          </div>
+          <label for="rotationDeg">Rotation (deg)</label>
+            <input id="rotationDeg" type="number" step="any" value="0" />
+        </div>
+
+        <div class="checkboxrow">
+          <input id="rotateView" type="checkbox" />
+          <label for="rotateView">Rotate view</label>
+        </div>
+
+        <div class="hint">
+         * These values are pre-defined. 
+        </div>
+
+      </div>
+
+      <div class="group">
+        <h2>Survey</h2>
+          <label for="surveySelect">Survey</label>
+          <select id="surveySelect">
+            <option value="P/DSS2/color" selected>DSS2 Color</option>
+            <option value="P/Halpha">Halpha</option>
+            <option value="P/Halpha inversed">Halpha inversed</option>
+          </select>
+      </div>
+
+      
+      <div class="group">
+        <h2>Overlay</h2>
+        <div class="row">
+          <div>
+            <label for="grid">Show Grid</label>
+            <select id="gridMode">
+              <option value="none" selected>None</option>
+            </select>
+          </div>
+          
+          <div>
+            <label for="lineWidth">Line width (px)</label>
+            <input id="lineWidth" type="number" step="1" value="2" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="color">Color</label>
+            <input id="color" type="text" value="#00e5ff" />
+          </div>
+          <div>
+            <label for="opacity">Opacity (0-1)</label>
+            <input id="opacity" type="number" min="0" max="1" step="0.05" value="1" />
+          </div>
+        </div>
+
+        <div class="btnrow">
+          <button id="btnRecenter">Recenter overlay</button>
+          <button id="btnUpdate">Update overlay</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Computed</h2>
+        <div id="readout" class="readout"></div>
+      </div>
+
+      <div class="footer">
+        Uses Aladin Lite v3 (CDS). Per the embed terms, keep the Aladin logo/link intact.
+        (<a href="https://aladin.cds.unistra.fr/AladinLite/doc/" target="_blank" rel="noreferrer">docs</a>)
+      </div>
+    </aside>
+
+    <main>
+      <div id="aladin-lite-div"></div>
+    </main>
+  </div>
+
+  <!-- Aladin Lite v3 -->
+  <script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
+
+  <script>
+    // -------------------------
+    // Helpers: geometry + FoV
+    // -------------------------
+    const DEG = Math.PI / 180.0;
+
+    function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+    function getFallbackCenterFromInputs() {
+      const ra = Number.parseFloat(document.getElementById('raDeg').value);
+      const dec = Number.parseFloat(document.getElementById('decDeg').value);
+      if (Number.isFinite(ra) && Number.isFinite(dec)) return { ra, dec };
+      return null;
+    }
+
+    function getAladinCenter() {
+      const c = (aladin && typeof aladin.getRaDec === "function") ? aladin.getRaDec() : null;
+      if (!c) return null;
+
+      // {ra,dec}
+      if (typeof c === "object" && !Array.isArray(c) && ("ra" in c) && ("dec" in c)) {
+        const ra = Number(c.ra), dec = Number(c.dec);
+        return (Number.isFinite(ra) && Number.isFinite(dec)) ? { ra, dec } : null;
+      }
+
+      // [ra,dec]
+      if (Array.isArray(c) && c.length >= 2) {
+        const ra = Number(c[0]), dec = Number(c[1]);
+        return (Number.isFinite(ra) && Number.isFinite(dec)) ? { ra, dec } : null;
+      }
+
+      return null;
+    }
+
+
+function fmtDegMaybe(x, ndp = 6) {
+  const v = Number(x);
+  return Number.isFinite(v) ? v.toFixed(ndp) + "°" : "(not ready)";
+}
+
+
+    function getCameraParams() {
+      const w = parseFloat(document.getElementById('sensorW').value);
+      const h = parseFloat(document.getElementById('sensorH').value);
+      const nx = parseInt(document.getElementById('nx').value, 10);
+      const ny = parseInt(document.getElementById('ny').value, 10);
+      const pix_um = parseFloat(document.getElementById('pixSize').value);
+      
+      return { sensorW_mm: w, sensorH_mm: h, nx: nx, ny: ny, pix_um: pix_um };
+    }
+
+    function computeFovDeg(focal_mm, sensorW_mm, sensorH_mm) {
+      const fovW = 2 * Math.atan(sensorW_mm / (2 * focal_mm)) / DEG;
+      const fovH = 2 * Math.atan(sensorH_mm / (2 * focal_mm)) / DEG;
+      return { fovW_deg: fovW, fovH_deg: fovH };
+    }
+
+    function computePixelScaleArcsecPx(focal_mm, pix_um) {
+      if (!(pix_um > 0)) return null;
+      return 206.265 * (pix_um / focal_mm);
+    }
+
+    function formatArcmin(deg) { return (deg * 60).toFixed(2) + "′"; }
+    function formatDeg(deg) { return deg.toFixed(6) + "°"; }
+
+    function radecToVec(raDeg, decDeg) {
+  const ra = raDeg * DEG;
+  const dec = decDeg * DEG;
+  const cdec = Math.cos(dec);
+  return [
+    cdec * Math.cos(ra),
+    cdec * Math.sin(ra),
+    Math.sin(dec)
+  ];
+}
+
+function vecToRaDec(v) {
+  const [x, y, z] = v;
+  const ra = Math.atan2(y, x);                 // [-pi, pi]
+  const dec = Math.asin(clamp(z, -1, 1));      // [-pi/2, pi/2]
+  let raDeg = ra / DEG;
+  if (raDeg < 0) raDeg += 360;
+  return { ra: raDeg, dec: dec / DEG };
+}
+
+function normalize(v) {
+  const n = Math.hypot(v[0], v[1], v[2]);
+  return [v[0]/n, v[1]/n, v[2]/n];
+}
+
+function cross(a, b) {
+  return [
+    a[1]*b[2] - a[2]*b[1],
+    a[2]*b[0] - a[0]*b[2],
+    a[0]*b[1] - a[1]*b[0]
+  ];
+}
+
+function dot(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+
+function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
+  // Half-sizes in radians in the tangent plane
+  const hx = (fovW_deg / 2) * DEG;
+  const hy = (fovH_deg / 2) * DEG;
+
+  // Center unit vector
+  const c = radecToVec(ra0, dec0);
+
+  // Define "up" reference; near poles, use a different reference axis
+  const zAxis = [0, 0, 1];
+  const xAxis = [1, 0, 0];
+  const ref = (Math.abs(dot(c, zAxis)) > 0.99) ? xAxis : zAxis;
+
+  // East = ref x center (then normalized), North = center x East
+  let e = cross(ref, c);
+  e = normalize(e);
+  let n = cross(c, e);
+  n = normalize(n);
+
+  // Apply rotation in tangent plane about the line of sight
+  const rot = rotation_deg * DEG;
+  const cr = Math.cos(rot), sr = Math.sin(rot);
+  const eR = [cr*e[0] + sr*n[0], cr*e[1] + sr*n[1], cr*e[2] + sr*n[2]];
+  const nR = [-sr*e[0] + cr*n[0], -sr*e[1] + cr*n[1], -sr*e[2] + cr*n[2]];
+
+  // Corners in tangent-plane coordinates (x east, y north)
+  const corners = [
+    [-hx, -hy],
+    [ hx, -hy],
+    [ hx,  hy],
+    [-hx,  hy]
+  ];
+
+  // Gnomonic mapping: v ∝ c + x*eR + y*nR
+  const poly = corners.map(([x, y]) => {
+    const v = normalize([
+      c[0] + x*eR[0] + y*nR[0],
+      c[1] + x*eR[1] + y*nR[1],
+      c[2] + x*eR[2] + y*nR[2],
+    ]);
+    const radec = vecToRaDec(v);
+    return [radec.ra, radec.dec];
+  });
+
+  return poly;
+}
+
+
+    // -------------------------
+    // Survey management
+    // -------------------------
+    function selectSurvey() {
+      const key = document.getElementById("surveySelect").value;
+      console.log("Selected survey:", key);
+
+      if (key == 'P/DSS2/color') {
+        aladin.setImageLayer("P/DSS2/color");
+        survey = aladin.getBaseImageLayer();
+        survey.setOptions({ stretch: 'asinh', invert: true });
+      } else
+      if (key == "P/Halpha") {
+        aladin.setImageLayer("P/Finkbeiner"); // actual HiPS survey ID
+        survey = aladin.getBaseImageLayer();
+        survey.setColormap("grayscale", { stretch: "asinh", reverse: false });
+        survey.setCuts(0, 100);
+      } else if (key == "P/Halpha inversed") {
+        aladin.setImageLayer("P/Finkbeiner"); // actual HiPS survey ID
+        survey = aladin.getBaseImageLayer();
+        survey.setColormap("grayscale", { stretch: "asinh", reverse: true });
+        survey.setCuts(0, 100);
+      }
+    }
+
+
+    // -------------------------
+    // Aladin init + overlay
+    // -------------------------
+    let aladin = null;
+    let overlay = null;
+
+    function ensureOverlay() {
+      if (!overlay) {
+        overlay = A.graphicOverlay({ color: '#00e5ff', lineWidth: 3 });
+        aladin.addOverlay(overlay);
+      }
+    }
+
+    function updateOverlayCenteredOnView() {
+      ensureOverlay();
+
+      const focal_mm = parseFloat(document.getElementById('focalLength').value);
+      if (!(focal_mm > 0)) throw new Error("Focal length must be > 0.");
+
+      const cam = getCameraParams();
+      const { fovW_deg, fovH_deg } = computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
+
+      const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
+      const lineWidth = parseInt(document.getElementById('lineWidth').value, 10) || 3;
+      const color = (document.getElementById('color').value || '#00e5ff').trim();
+      const opacity = clamp(parseFloat(document.getElementById('opacity').value), 0, 1);
+      const gridmode = document.getElementById('gridMode').value || "none";
+
+      const center = getAladinCenter() || getFallbackCenterFromInputs();
+      if (!center) {
+        // Show something friendly and *just skip drawing* for now.
+        document.getElementById('readout').textContent =
+          "Loading sky view… (center not ready yet)";
+        return;
+      }
+      const ra0 = center.ra;
+      const dec0 = center.dec;
+
+      const poly = makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rot, gridmode);
+
+      // Update overlay style + clear previous shapes
+      if (typeof overlay.setColor === 'function') overlay.setColor(color);
+      if (typeof overlay.setLineWidth === 'function') overlay.setLineWidth(lineWidth);
+      if (typeof overlay.removeAll === 'function') overlay.removeAll();
+
+      const shapeOptions = { color, lineWidth, opacity, fill: false };
+
+      // Add footprint polygon (official pattern: overlay.addFootprints([A.polygon(...)]) )
+      overlay.addFootprints([A.polygon(poly, shapeOptions)]);
+
+      // Update readout
+      const pixScale = computePixelScaleArcsecPx(focal_mm, cam.pix_um);
+      const lines = [];
+      lines.push(`Sensor: ${cam.sensorW_mm.toFixed(3)} x ${cam.sensorH_mm.toFixed(3)} mm`);
+      if (cam.nx && cam.ny) lines.push(`Resolution: ${cam.nx} x ${cam.ny} px  |  pixel: ${cam.pix_um} µm`);
+      lines.push(`Focal length: ${focal_mm.toFixed(2)} mm`);
+      lines.push(`FoV (W x H): ${formatDeg(fovW_deg)} x ${formatDeg(fovH_deg)}  (${formatArcmin(fovW_deg)} x ${formatArcmin(fovH_deg)})`);
+      if (pixScale) lines.push(`Pixel scale: ${pixScale.toFixed(3)} arcsec/px`);
+      lines.push(`Center (ICRS): RA ${fmtDegMaybe(ra0, 6)}, Dec ${fmtDegMaybe(dec0, 6)}`);
+      lines.push(`Rotation: ${rot.toFixed(2)}°`);
+      document.getElementById('readout').textContent = lines.join("\n");
+      rotateView();
+    }
+
+    function updateRaDec() {
+      const center = aladin.getRaDec();
+      if (!center) return;
+      document.getElementById('raDeg').value = center[0];
+      document.getElementById('decDeg').value = center[1];
+    }
+
+    function followView() {
+      const checked = document.getElementById('followView').checked;
+      if (!aladin) return;
+      if (!checked) return;
+      updateRaDec();
+    }
+
+    function rotateView() {
+      const checked = document.getElementById('rotateView').checked;
+      if (!aladin) return;
+      if (!checked) {
+        aladin.setRotation(0);
+        return;
+      }
+      const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
+      aladin.setRotation(rot);
+    }
+
+    function safeUpdate() {
+      try {
+        if (!aladin) return;
+        updateOverlayCenteredOnView(); 
+      } catch (e) { 
+        document.getElementById('readout').textContent = "Error: " + (e?.message || String(e));
+      }
+    }
+
+    function wireInputs() {
+      const ids = [
+        'focalLength','sensorW','sensorH','nx','ny','pixSize', 'rotationDeg',
+        'lineWidth','color','opacity','cameraMode', //'gridMode'
+      ];
+
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return; // extra safety
+        el.addEventListener('input', safeUpdate);
+        el.addEventListener('change', safeUpdate);
+      });
+
+      document.getElementById('btnUpdate').addEventListener('click', safeUpdate);
+      document.getElementById('btnRecenter').addEventListener('click', safeUpdate);
+
+      document.getElementById('btnGotoName').addEventListener('click', () => {
+        const name = document.getElementById('targetName').value.trim();
+        if (!name) return;
+        aladin.gotoObject(name);
+        setTimeout(safeUpdate, 250);
+      });
+
+      document.getElementById('btnGotoRaDec').addEventListener('click', () => {
+        const ra = parseFloat(document.getElementById('raDeg').value);
+        const dec = parseFloat(document.getElementById('decDeg').value);
+        if (!(isFinite(ra) && isFinite(dec))) return;
+        aladin.gotoRaDec(ra, dec);
+        setTimeout(safeUpdate, 250);
+      });
+    }
+
+    document.getElementById('updateRaDec').addEventListener('click', () => {
+      updateRaDec();
+      safeUpdate();
+    });
+    
+
+    document.getElementById('rotateView').addEventListener('change', (evt) => {
+      const checked = evt.target.checked;
+      if (!aladin) return;
+      rotateView();
+    });
+
+    document.getElementById("surveySelect").addEventListener("change", () => {
+        const key = document.getElementById("surveySelect").value;
+        console.log("Selected survey:", key);
+        if (!aladin) return;
+        selectSurvey();
+      });
+
+    document.getElementById('copyFraming').addEventListener('click', () => {
+      /* CSV of the form:
+      Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column
+      Pane 1, 11hr 13' 31", 55º 23' 33", 0.00, 147.00, 97.20, 10%, -, -
+      */
+      const center = getAladinCenter() || getFallbackCenterFromInputs();
+      if (!center) return;
+      const focal_mm = parseFloat(document.getElementById('focalLength').value);
+      if (!(focal_mm > 0)) return;
+
+      const cam = getCameraParams();
+      const { fovW_deg, fovH_deg } = computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
+      const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
+
+      const framing = // do the CSV for a single pane; in the future we could extend to multiple panes/setups
+        `Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column
+         Pane 1, ${fmtDegMaybe(center.ra)}, ${fmtDegMaybe(center.dec)}, ${rot.toFixed(2)}°, ${(fovW_deg*60).toFixed(2)}, ${(fovH_deg*60).toFixed(2)}, 0%, -, -`;   
+
+      navigator.clipboard.writeText(framing).then(() => {
+        alert("Framing info copied to clipboard:\n\n" + framing);
+      }).catch(err => {
+        alert("Failed to copy framing info: " + (err?.message || String(err)));
+      });
+
+    });
+
+    // -------------------------
+    // Boot
+    // -------------------------
+    A.init.then(() => {
+      aladin = A.aladin('#aladin-lite-div', {
+        survey: "P/DSS2/color", // default survey (restyle in selectSurvey)
+        target: "M42",
+        fov: 4.0,
+        showCooGrid: false,
+        showCooGridControl: true,
+        showSimbadPointerControl: false,
+        showFullscreenControl: true,
+        expandLayersControl: false,
+        showGotoControl: false,
+      });
+      aladin.setProjection('SIN');
+
+      selectSurvey(); // apply initial survey settings
+
+
+      // Add H-alpha as an *overlay* survey, but rendered your way
+      const ha = aladin.newImageSurvey("P/Finkbeiner");      // existing HiPS ID
+      // aladin.addCatalog(ha);
+      // ha.setColormap("grayscale", { stretch: "asinh", reversed: false });
+      // ha.setCuts(0, 100);                                // low/high cut values
+
+      wireInputs();
+      safeUpdate();
+
+      // Keep overlay in sync when user drags/zooms (debounced)
+      let t = null;
+      aladin.on('positionChanged', () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          if (document.getElementById('followView')?.checked) updateRaDec();
+          safeUpdate();
+        }, 120);
+      });
+    }).catch(err => {
+      document.body.innerHTML =
+        "<pre style='padding:16px;color:#fff;background:#000'>Failed to init Aladin Lite: " +
+        (err?.message || err) + "</pre>";
+    });
+  </script>
+</body>
+</html>
