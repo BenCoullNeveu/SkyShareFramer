@@ -201,8 +201,13 @@
             <option value="P/Halpha">Halpha</option>
             <option value="P/Halpha inversed">Halpha inversed</option>
           </select>
+          <label for="delayedUpdate" style="margin-top: 10px;">Set Styling Delay (ms)**</label>
+          <input id="delayedUpdate" type="number" value="600" />
+          <div class="hint">
+            ** Adjust if styling doesn't apply on survey change.
+          </div>
       </div>
-
+      
       
       <div class="group">
         <h2>Overlay</h2>
@@ -407,26 +412,44 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
     // -------------------------
     // Survey management
     // -------------------------
+    function applySurveySettings(key) {
+      const survey = aladin.getBaseImageLayer();
+      if (!survey) return;
+
+      if (key === 'P/DSS2/color') {
+        // DSS2 color: keep native colors, apply stretch if you want
+        survey.setColormap("native", { stretch: "asinh", reversed: false });
+        // Optional: layer.setCuts(...) if you want fixed cuts
+      }
+
+      if (key === "P/Halpha") {
+        survey.setColormap("grayscale", { stretch: "asinh", reversed: false });
+        survey.setCuts(0, 100/255);
+      }
+
+      if (key === "P/Halpha inversed") {
+        survey.setColormap("grayscale", { stretch: "asinh", reversed: true });
+        survey.setCuts(0, 100/255);
+      }
+    }
+
     function selectSurvey() {
       const key = document.getElementById("surveySelect").value;
+      const delay = parseInt(document.getElementById("delayedUpdate").value, 10) || 600;
       console.log("Selected survey:", key);
+      if (!aladin) return;
 
-      if (key == 'P/DSS2/color') {
-        aladin.setImageLayer("P/DSS2/color");
-        survey = aladin.getBaseImageLayer();
-        survey.setOptions({ stretch: 'asinh', invert: true });
-      } else
-      if (key == "P/Halpha") {
-        aladin.setImageLayer("P/Finkbeiner"); // actual HiPS survey ID
-        survey = aladin.getBaseImageLayer();
-        survey.setColormap("grayscale", { stretch: "asinh", reverse: false });
-        survey.setCuts(0, 100);
-      } else if (key == "P/Halpha inversed") {
-        aladin.setImageLayer("P/Finkbeiner"); // actual HiPS survey ID
-        survey = aladin.getBaseImageLayer();
-        survey.setColormap("grayscale", { stretch: "asinh", reverse: true });
-        survey.setCuts(0, 100);
+      // 1) Switch base survey (this is async internally)
+      if (key === "P/DSS2/color") {
+        aladin.setImageLayer("P/DSS2/color");  
+      } else if (key === "P/Halpha" || key === "P/Halpha inversed") {
+        aladin.setImageLayer("P/Finkbeiner");   
       }
+
+      // 2) Apply settings AFTER the base layer has actually switched
+      setTimeout(() => {
+        applySurveySettings(key);
+      }, delay);
     }
 
 
@@ -499,6 +522,7 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
       if (!center) return;
       document.getElementById('raDeg').value = center[0];
       document.getElementById('decDeg').value = center[1];
+      updateOverlayCenteredOnView();
     }
 
     function followView() {
@@ -572,9 +596,13 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
       rotateView();
     });
 
+    document.getElementById('followView').addEventListener('change', (evt) => {
+      const checked = evt.target.checked;
+      if (!aladin) return;
+      followView();
+    });
+
     document.getElementById("surveySelect").addEventListener("change", () => {
-        const key = document.getElementById("surveySelect").value;
-        console.log("Selected survey:", key);
         if (!aladin) return;
         selectSurvey();
       });
