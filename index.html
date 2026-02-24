@@ -198,6 +198,7 @@
           <label for="surveySelect">Survey</label>
           <select id="surveySelect">
             <option value="P/DSS2/color" selected>DSS2 Color</option>
+            <option value="P/DSS2/red">DSS2 Red</option>
             <option value="P/Halpha">Halpha</option>
             <option value="P/Halpha inversed">Halpha inversed</option>
           </select>
@@ -431,6 +432,12 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
         survey.setColormap("grayscale", { stretch: "asinh", reversed: true });
         survey.setCuts(0, 100/255);
       }
+
+      if (key === "P/DSS2/red") {
+        survey.setImageFormat("jpeg")
+        survey.setColormap("grayscale", { stretch: "asinh", reversed: false });
+        survey.setCuts(0, 100/255);
+      }
     }
 
     function selectSurvey() {
@@ -444,6 +451,11 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
         aladin.setImageLayer("P/DSS2/color");  
       } else if (key === "P/Halpha" || key === "P/Halpha inversed") {
         aladin.setImageLayer("P/Finkbeiner");   
+      } else if (key === "P/DSS2/red") {
+        aladin.setImageLayer("P/DSS2/red");  
+      } else {
+        console.warn("Unknown survey key:", key);
+        return;
       }
 
       // 2) Apply settings AFTER the base layer has actually switched
