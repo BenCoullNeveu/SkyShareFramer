@@ -572,7 +572,8 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
         const name = document.getElementById('targetName').value.trim();
         if (!name) return;
         aladin.gotoObject(name);
-        setTimeout(safeUpdate, 250);
+        setTimeout(updateRaDec, 250); // update RA/Dec after goto (with some delay to ensure it has updated)
+        safeUpdate();
       });
 
       document.getElementById('btnGotoRaDec').addEventListener('click', () => {
@@ -647,6 +648,7 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
         showFullscreenControl: true,
         expandLayersControl: false,
         showGotoControl: false,
+        orientation: 0
       });
       aladin.setProjection('SIN');
 
