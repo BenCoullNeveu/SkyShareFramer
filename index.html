@@ -666,13 +666,6 @@ function makeFovPolygon(ra0, dec0, fovW_deg, fovH_deg, rotation_deg, grid) {
 
       selectSurvey(); // apply initial survey settings
 
-
-      // Add H-alpha as an *overlay* survey, but rendered your way
-      const ha = aladin.newImageSurvey("P/Finkbeiner");      // existing HiPS ID
-      // aladin.addCatalog(ha);
-      // ha.setColormap("grayscale", { stretch: "asinh", reversed: false });
-      // ha.setCuts(0, 100);                                // low/high cut values
-
       wireInputs();
       safeUpdate();
 
