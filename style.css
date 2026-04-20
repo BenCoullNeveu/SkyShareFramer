@@ -1,0 +1,98 @@
+:root { --bg:#0b0f19; --panel:#121a2b; --text:rgba(255, 255, 255, 0.9); --muted:rgba(255, 255, 255, 0.7); --border:rgba(207, 183, 255, 0.39);}
+html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+.app {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    height: 100%;
+}
+.panel {
+    background: linear-gradient(180deg, rgba(81, 81, 81, 0.98), rgba(81, 81, 81, 0.98));
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow: auto;
+}
+.panel h1 { font-size: 16px; margin: 0 0 12px 0; letter-spacing: 0.2px; }
+.group { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.group h2 { font-size: 13px; margin: 0 0 10px 0; color: var(--muted); font-weight: 600; }
+label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 6px; }
+input, select {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+    background: rgba(19, 19, 19, 0.6);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 9px 10px;
+    outline: none;
+    font-size: 13px;
+}
+input:focus, select:focus { border-color: #fdfdfd; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+
+.checkboxrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.checkboxrow input[type="checkbox"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: rgba(19, 19, 19, 0.6);
+    cursor: pointer;
+    position: relative;
+}
+
+.checkboxrow input[type="checkbox"]:checked {
+    background: #00e5ff;
+    border-color: #00e5ff;
+}
+
+.checkboxrow input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid #000;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.checkboxrow label {
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+}
+
+button {
+    border: 1px solid var(--border);
+    background: rgba(10,14,26,0.8);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+}
+button:hover { border-color: #ffffff; }
+.readout {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text);
+    white-space: pre-wrap;
+}
+.hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+#aladin-lite-div { width: 100%; height: 100%; }
+.footer { font-size: 11px; color: var(--muted); margin-top: 10px; }
+.footer a { color: var(--muted); }

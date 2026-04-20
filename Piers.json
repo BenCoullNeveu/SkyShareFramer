@@ -1,0 +1,30 @@
+[
+  {
+    "Telescope" : "[Pier 1] - Esprit 100 + IMX571",
+    "FocalLength" : 550,
+    "SensorWidth" : 23.5,
+    "SensorHeight" : 15.7,
+    "PixelSize" : 3.76,
+    "ResolutionNX" : 6248,
+    "ResolutionNY" : 4176
+  },
+  {
+    "Telescope" : "[Pier 2] - Samyang135 + SonyA7iii",
+    "FocalLength" : 135,
+    "SensorWidth" : 35.9,
+    "SensorHeight" : 24,
+    "PixelSize" : 4.31,
+    "ResolutionNX" : 6000,
+    "ResolutionNY" : 4000
+  },
+  {
+    "Telescope" : "[Pier 3] - AG12 + QHY600PH",
+    "FocalLength" : 1140,
+    "SensorWidth" : 36,
+    "SensorHeight" : 24,
+    "PixelSize" : 3.76,
+    "ResolutionNX" : 9576,
+    "ResolutionNY" : 6388
+  }
+  
+]
