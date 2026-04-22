@@ -361,12 +361,22 @@ function followView() {
 function rotateView() {
     const checked = document.getElementById('rotateView').checked;
     if (!aladin) return;
+
+    const applyAladinRotation = (deg) => {
+    if (!Number.isFinite(deg)) return;
+    const normalized = ((deg % 360) + 360) % 360;
+    // Aladin warns on 0 because it is treated as invalid internally.
+    // 360° is visually equivalent to 0°.
+    const safeDeg = (Math.abs(normalized) < 1e-12) ? 360 : normalized;
+    aladin.setRotation(safeDeg);
+    };
+
     if (!checked) {
-    aladin.setRotation(0);
+    applyAladinRotation(0);
     return;
     }
     const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
-    aladin.setRotation(rot);
+    applyAladinRotation(rot);
 }
 
 function safeUpdate() {
@@ -709,8 +719,7 @@ A.init.then(() => {
     showSimbadPointerControl: false,
     showFullscreenControl: true,
     expandLayersControl: false,
-    showGotoControl: false,
-    orientation: 0
+    showGotoControl: false
     });
     aladin.setProjection('SIN');
 
