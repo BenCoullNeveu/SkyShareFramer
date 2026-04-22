@@ -418,59 +418,79 @@ function getMosaicDimensions() {
     return { cols, rows, verticalOverlap, horizontalOverlap };
 }
 
-function buildMosaicFramingCsv(center, focal_mm, cam, rotationDeg, mosaic) {
+function computeMosaicPaneCenters(center, focal_mm, cam, rotationDeg, mosaic) {
     const { fovW_deg, fovH_deg } = computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
+
     const stepXDeg = fovW_deg * (1 - mosaic.horizontalOverlap / 100);
     const stepYDeg = fovH_deg * (1 - mosaic.verticalOverlap / 100);
+
+    // Build the rotated tangent-plane basis at the mosaic center
+    const basis = createTangentBasis(center.ra, center.dec);
+    const rot = rotationDeg * DEG;
+    const cr = Math.cos(rot), sr = Math.sin(rot);
+
+    // Rotated east/north axes (same rotation convention as makeFovPolygon)
+    const eR = [
+        cr * basis.east[0] + sr * basis.north[0],
+        cr * basis.east[1] + sr * basis.north[1],
+        cr * basis.east[2] + sr * basis.north[2],
+    ];
+    const nR = [
+        -sr * basis.east[0] + cr * basis.north[0],
+        -sr * basis.east[1] + cr * basis.north[1],
+        -sr * basis.east[2] + cr * basis.north[2],
+    ];
+
+    const panes = [];
+    for (let row = 0; row < mosaic.rows; row++) {
+        for (let col = 0; col < mosaic.cols; col++) {
+            // Offset in the rotated frame (radians in tangent plane)
+            const xOff = (col - (mosaic.cols - 1) / 2) * stepXDeg * DEG;
+            const yOff = ((mosaic.rows - 1) / 2 - row) * stepYDeg * DEG;
+
+            // Gnomonic offset from center along rotated axes
+            const v = normalize([
+                basis.center[0] + xOff * eR[0] + yOff * nR[0],
+                basis.center[1] + xOff * eR[1] + yOff * nR[1],
+                basis.center[2] + xOff * eR[2] + yOff * nR[2],
+            ]);
+            const paneCenter = vecToRaDec(v);
+            const paneRotationDeg = getAlignedPaneRotation(center, paneCenter, rotationDeg);
+
+            panes.push({
+                row: row + 1,
+                col: col + 1,
+                center: paneCenter,
+                rotationDeg: paneRotationDeg,
+                polygon: makeFovPolygon(paneCenter.ra, paneCenter.dec, fovW_deg, fovH_deg, paneRotationDeg, 'none'),
+                widthArcmin: fovW_deg * 60,
+                heightArcmin: fovH_deg * 60,
+            });
+        }
+    }
+    return { panes, fovW_deg, fovH_deg };
+}
+
+function buildMosaicPaneData(center, focal_mm, cam, rotationDeg, mosaic) {
+    return computeMosaicPaneCenters(center, focal_mm, cam, rotationDeg, mosaic).panes;
+}
+
+function buildMosaicFramingCsv(center, focal_mm, cam, rotationDeg, mosaic) {
+    const { panes, fovW_deg, fovH_deg } = computeMosaicPaneCenters(center, focal_mm, cam, rotationDeg, mosaic);
     const lines = [];
 
     lines.push(`Mosaic, ${mosaic.rows} rows x ${mosaic.cols} cols`);
     lines.push(`Alignment, ${alignFramesEnabled ? 'On' : 'Off'}`);
     lines.push(`Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Row, Column, Horizontal overlap, Vertical overlap`);
 
-    for (let row = 0; row < mosaic.rows; row += 1) {
-    for (let col = 0; col < mosaic.cols; col += 1) {
-        const eastOffsetDeg = (col - (mosaic.cols - 1) / 2) * stepXDeg;
-        const northOffsetDeg = ((mosaic.rows - 1) / 2 - row) * stepYDeg;
-        const paneCenter = offsetRaDec(center.ra, center.dec, eastOffsetDeg, northOffsetDeg);
-        const paneIndex = row * mosaic.cols + col + 1;
-        const paneRotationDeg = getAlignedPaneRotation(center, paneCenter, rotationDeg);
-
+    for (const pane of panes) {
+        const paneIndex = (pane.row - 1) * mosaic.cols + pane.col;
         lines.push(
-        `Pane ${paneIndex}, ${fmtDegMaybe(paneCenter.ra)}, ${fmtDegMaybe(paneCenter.dec)}, ${paneRotationDeg.toFixed(2)}°, ${(fovW_deg * 60).toFixed(2)}, ${(fovH_deg * 60).toFixed(2)}, ${row + 1}, ${col + 1}, ${mosaic.horizontalOverlap.toFixed(1)}%, ${mosaic.verticalOverlap.toFixed(1)}%`
+            `Pane ${paneIndex}, ${fmtDegMaybe(pane.center.ra)}, ${fmtDegMaybe(pane.center.dec)}, ${pane.rotationDeg.toFixed(2)}°, ${pane.widthArcmin.toFixed(2)}, ${pane.heightArcmin.toFixed(2)}, ${pane.row}, ${pane.col}, ${mosaic.horizontalOverlap.toFixed(1)}%, ${mosaic.verticalOverlap.toFixed(1)}%`
         );
-    }
     }
 
     return lines.join('\n');
-}
-
-function buildMosaicPaneData(center, focal_mm, cam, rotationDeg, mosaic) {
-    const { fovW_deg, fovH_deg } = computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
-    const stepXDeg = fovW_deg * (1 - mosaic.horizontalOverlap / 100);
-    const stepYDeg = fovH_deg * (1 - mosaic.verticalOverlap / 100);
-    const panes = [];
-
-    for (let row = 0; row < mosaic.rows; row += 1) {
-    for (let col = 0; col < mosaic.cols; col += 1) {
-        const eastOffsetDeg = (col - (mosaic.cols - 1) / 2) * stepXDeg;
-        const northOffsetDeg = ((mosaic.rows - 1) / 2 - row) * stepYDeg;
-        const paneCenter = offsetRaDec(center.ra, center.dec, eastOffsetDeg, northOffsetDeg);
-        const paneRotationDeg = getAlignedPaneRotation(center, paneCenter, rotationDeg);
-
-        panes.push({
-        row: row + 1,
-        col: col + 1,
-        center: paneCenter,
-        rotationDeg: paneRotationDeg,
-        polygon: makeFovPolygon(paneCenter.ra, paneCenter.dec, fovW_deg, fovH_deg, paneRotationDeg, 'none'),
-        widthArcmin: fovW_deg * 60,
-        heightArcmin: fovH_deg * 60
-        });
-    }
-    }
-
-    return panes;
 }
 
 function updateMosaicOverlay() {
