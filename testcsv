@@ -1,0 +1,9 @@
+Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column
+Pane 1, 02hr 55' 49", 05º 46' 38", 0.00, 147.00, 97.20, 10%, -, -
+
+Mosaic, 1 rows x 1 cols
+Alignment, Off
+Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Row, Column, Horizontal overlap, Vertical overlap
+Pane 1, 83.820100°, -5.387600°, 0.00°, 145.54, 97.24, 1, 1, 15.0%, 15.0%
+Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column
+        Pane 1, 83.820100°, -5.387600°, 0.00°, 145.54, 97.24, 0%, -, -

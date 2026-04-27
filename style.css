@@ -128,3 +128,18 @@ button:hover { border-color: #ffffff; }
 #aladin-lite-div { width: 100%; height: 100%; }
 .footer { font-size: 11px; color: var(--muted); margin-top: 10px; }
 .footer a { color: var(--muted); }
+
+#altAzPlot {
+    width: 100%;
+    height: 360px;
+    display: block;
+}
+#altAzInfo{
+    margin-top:8px;
+    padding:10px 12px;
+    border-radius:10px;
+    background:rgba(255,255,255,0.06);
+    color:rgba(255,255,255,0.92);
+    font:13px system-ui;
+    white-space:pre-line;
+}

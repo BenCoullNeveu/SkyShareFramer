@@ -98,6 +98,39 @@
         </div>
       </div>
 
+    
+      <div class="group collapsed">
+        <h2 class="group-title">Coordinate Charts</h2>
+        <div class="group-content">
+
+          <div class="row">
+            <div>
+              <label for="obsLat">Latitude (deg)</label>
+              <input id="obsLat" type="number" step="any" value="31.5" disabled />
+            </div>
+            <div>
+              <label for="obsLon">Longitude (deg)</label>
+              <input id="obsLon" type="number" step="any" value="-99.4" disabled />
+            </div>
+          </div>
+
+          <label for="obsDate">Night</label>
+          <input id="obsDate" type="date" />
+
+          <div class="plannerWrap">
+              <canvas id="altAzPlot"></canvas>
+              <div id="altAzInfo" class="plannerInfo">Click target curve</div>
+          </div>
+
+          <div class="hint">
+            Altitude vs time through the selected night at the observatory.
+            Vertical shading = astronomical darkness.
+          </div>
+
+        </div>
+      </div>
+
+
       <div class="group collapsed">
         <h2 class="group-title">Mosaic</h2>
         <div class="group-content">
@@ -112,17 +145,17 @@
             </div>
             <div>
               <label for="mosaicRows">Rows</label>
-              <input id="mosaicRows" type="number" step="1" value="1" />
+              <input id="mosaicRows" type="number" step="1" value="2" />
             </div>
           </div>
           <div class="row">
             <div>
-              <label for="verticalOverlap">Vertical overlap (%)</label>
-              <input id="verticalOverlap" type="number" step="any" value="15" />
-            </div>
-            <div>
               <label for="horizontalOverlap">Horizontal overlap (%)</label>
               <input id="horizontalOverlap" type="number" step="any" value="15" />
+            </div>
+            <div>
+              <label for="verticalOverlap">Vertical overlap (%)</label>
+              <input id="verticalOverlap" type="number" step="any" value="15" />
             </div>
           </div>
           <div class="hint">
