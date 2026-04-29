@@ -9,7 +9,8 @@
 <body>
   <div class="app">
     <aside class="panel">
-      <h1>SkyShare Astro Framing Tool</h1>
+      <h1>SkyShare Astro</h1>
+      <h2>Framing Tool</h2>
 
       <div class="group">
         <h2 class="group-title">Target / Center</h2>
@@ -17,16 +18,21 @@
           <label for="targetName">Object name</label>
           <input id="targetName" type="text" value="M42" placeholder="e.g. M31, NGC 7000, Betelgeuse" />
 
-          <div class="row">
+          <div class="radecrow">
             <div>
               <label for="raDeg">RA (deg)</label>
-              <input id="raDeg" type="number" step="any" value="83.822" />
+              <input id="raDeg" type="text" value="83.822" />
             </div>
             <div>
               <label for="decDeg">Dec (deg)</label>
-              <input id="decDeg" type="number" step="any" value="-5.391" />
+              <input id="decDeg" type="text" value="-5.391" />
+            </div>
+            <div>
+              <button id="btnToggleRaDecFormat" type="button" class="format-toggle" title="Toggle RA/Dec format" aria-label="Toggle RA/Dec format">⇄</button>
             </div>
           </div>
+
+          
         
           <div class="btnrow">
             <button id="btnGotoName">Go to name</button>
@@ -49,44 +55,57 @@
         </div>
       </div>
 
-      <div class="group collapsed">
+      <div class="group">
         <h2 class="group-title">Telescope</h2>
         <div class="group-content">
           <label for="setupName">Setup</label>
-          <select id="setupName">
+          <select id="setupName" style="margin-bottom: 5px;">
             <option value="" selected>Loading setups...</option>
           </select>
 
 
-          <div id="telescopeParams">
-            <label for="focalLength">Focal length (mm) *</label>
-              <input id="focalLength" type="number" step="any" value="550" disabled />
-            <div class="row">
-              <div>
-                <label for="sensorW">Sensor width (mm) *</label>
-                <input id="sensorW" type="number" step="any" value="23.5" disabled/>
+          <div id="telescopeParams" class="group collapsed">
+            <h3 class="group-title">Parameters</h3>
+            <div class="group-content">
+              <label for="focalLength">Focal length (mm) *</label>
+                <input id="focalLength" type="number" step="any" value="550" disabled />
+              <div class="row">
+                <div>
+                  <label for="sensorW">Sensor width (mm) *</label>
+                  <input id="sensorW" type="number" step="any" value="23.5" disabled/>
+                </div>
+                <div>
+                  <label for="sensorH">Sensor height (mm) *</label>
+                  <input id="sensorH" type="number" step="any" value="15.7" disabled/>
+                </div>
               </div>
-              <div>
-                <label for="sensorH">Sensor height (mm) *</label>
-                <input id="sensorH" type="number" step="any" value="15.7" disabled/>
+              <label for="pixSize">Pixel size (µm) *</label>
+                <input id="pixSize" type="number" step="any" value="3.76" disabled />
+              <div class="row">
+                <div>
+                  <label for="nx">Resolution NX (px) *</label>
+                  <input id="nx" type="number" step="1" value="6248" disabled/>
+                </div>
+                <div>
+                  <label for="ny">Resolution NY (px) *</label>
+                  <input id="ny" type="number" step="1" value="4176" disabled/>
+                </div>
               </div>
             </div>
-            <label for="pixSize">Pixel size (µm) *</label>
-              <input id="pixSize" type="number" step="any" value="3.76" disabled />
-            <div class="row">
-              <div>
-                <label for="nx">Resolution NX (px) *</label>
-                <input id="nx" type="number" step="1" value="6248" disabled/>
-              </div>
-              <div>
-                <label for="ny">Resolution NY (px) *</label>
-                <input id="ny" type="number" step="1" value="4176" disabled/>
-              </div>
-            </div>
-            <label for="rotationDeg">Rotation (deg)</label>
-              <input id="rotationDeg" type="number" step="any" value="0" />
           </div>
 
+          <div>
+              <label for="rotationDeg">Rotation (°): <input id="rotationValue" type="number" min="0" max="360" step="any" value="0" /></label>
+              <input id="rotationDeg" type="range" min="0" max="360" step="1" value="0" />
+            </div>
+            <div class="btnrowrot">
+              <button id="btnRotateCcw30" type="button">&lt;&lt;</button>
+              <button id="btnRotateCcw5" type="button">&lt;</button>
+              <button id="btnRotateNearest0mod30" type="button">•</button>
+              <button id="btnRotateCw5" type="button">&gt;</button>
+              <button id="btnRotateCw30" type="button">&gt;&gt;</button>
+            </div>
+  
           <div class="checkboxrow">
             <input id="rotateView" type="checkbox" />
             <label for="rotateView">Rotate view</label>
@@ -100,7 +119,7 @@
 
     
       <div class="group collapsed">
-        <h2 class="group-title">Coordinate Charts</h2>
+        <h2 class="group-title">Altitude Chart</h2>
         <div class="group-content">
 
           <div class="row">

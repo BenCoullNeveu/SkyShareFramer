@@ -5,14 +5,164 @@
 // Helpers: geometry + FoV
 // -------------------------
 const DEG = Math.PI / 180.0;
+let raDecDisplayMode = 'sexagesimal';
 
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
+function pad2(value) {
+    return String(value).padStart(2, '0');
+}
+
+function formatSexagesimal(value, isHours) {
+    const normalized = Number.isFinite(value) ? Math.abs(value) : 0;
+    const totalUnits = isHours ? normalized / 15 : normalized;
+    let first = Math.floor(totalUnits);
+    let minutesFloat = (totalUnits - first) * 60;
+    let second = (minutesFloat - Math.floor(minutesFloat)) * 60;
+    let minutes = Math.floor(minutesFloat);
+
+    second = Math.round(second * 100) / 100;
+    if (second >= 60) {
+        second -= 60;
+        minutes += 1;
+    }
+    if (minutes >= 60) {
+        minutes -= 60;
+        first += 1;
+    }
+
+    const secondText = second.toFixed(2).padStart(5, '0');
+    return `${pad2(first)}:${pad2(minutes)}:${secondText}`;
+}
+
+function formatRaForDisplay(raDeg) {
+    return raDecDisplayMode === 'sexagesimal' ? formatSexagesimal(wrap360(raDeg), true) : Number(raDeg).toFixed(6);
+}
+
+function formatDecForDisplay(decDeg) {
+    if (raDecDisplayMode !== 'sexagesimal') return Number(decDeg).toFixed(6);
+    const sign = decDeg < 0 ? '-' : '+';
+    return `${sign}${formatSexagesimal(decDeg, false)}`;
+}
+
+function parseAngleInput(text, kind) {
+    const raw = String(text ?? '').trim();
+    if (!raw) return NaN;
+
+    const hasSexagesimalMarkers = /[:hms°'"′″]/i.test(raw);
+    if (!hasSexagesimalMarkers) {
+        const numeric = Number.parseFloat(raw);
+        return Number.isFinite(numeric) ? numeric : NaN;
+    }
+
+    const negative = raw.startsWith('-');
+    const cleaned = raw
+        .toLowerCase()
+        .replace(/[h°]/g, ':')
+        .replace(/[m'′]/g, ':')
+        .replace(/[s"″]/g, '')
+        .replace(/\s+/g, '');
+
+    const parts = cleaned.split(':').filter(Boolean);
+    if (parts.length === 0) return NaN;
+
+    const first = Math.abs(Number.parseFloat(parts[0])) || 0;
+    const minutes = Math.abs(Number.parseFloat(parts[1])) || 0;
+    const seconds = Math.abs(Number.parseFloat(parts[2])) || 0;
+
+    let value = first + minutes / 60 + seconds / 3600;
+    if (kind === 'ra') value *= 15;
+    if (negative) value *= -1;
+    return value;
+}
+
+function getRaDecInputs() {
+    const raInput = document.getElementById('raDeg');
+    const decInput = document.getElementById('decDeg');
+    if (!raInput || !decInput) return null;
+
+    const ra = parseAngleInput(raInput.value, 'ra');
+    const dec = parseAngleInput(decInput.value, 'dec');
+    if (!Number.isFinite(ra) || !Number.isFinite(dec)) return null;
+
+    return { ra: wrap360(ra), dec };
+}
+
+function updateRaDecLabels() {
+    const raLabel = document.querySelector('label[for="raDeg"]');
+    const decLabel = document.querySelector('label[for="decDeg"]');
+    const button = document.getElementById('btnToggleRaDecFormat');
+
+    if (raLabel) raLabel.textContent = raDecDisplayMode === 'sexagesimal' ? 'RA (hms)' : 'RA (deg)';
+    if (decLabel) decLabel.textContent = raDecDisplayMode === 'sexagesimal' ? 'Dec (dms)' : 'Dec (deg)';
+    if (button) {
+    button.title = raDecDisplayMode === 'sexagesimal' ? 'Switch to decimal degrees' : 'Switch to sexagesimal';
+    button.setAttribute('aria-label', button.title);
+    }
+}
+
+function syncRaDecInputsFromDegrees(raDeg, decDeg) {
+    const raInput = document.getElementById('raDeg');
+    const decInput = document.getElementById('decDeg');
+    if (!raInput || !decInput) return;
+
+    raInput.value = formatRaForDisplay(raDeg);
+    decInput.value = formatDecForDisplay(decDeg);
+    updateRaDecLabels();
+}
+
+function toggleRaDecDisplayMode() {
+    const center = getRaDecInputs();
+    if (!center) return;
+
+    raDecDisplayMode = raDecDisplayMode === 'deg' ? 'sexagesimal' : 'deg';
+    syncRaDecInputsFromDegrees(center.ra, center.dec);
+}
+
+function readRotationValue(source) {
+    if (!source) return NaN;
+    if (typeof source.value === 'string') return Number.parseFloat(source.value);
+    return Number.parseFloat(String(source.textContent || source.innerText || '').replace('°', '').trim());
+}
+
+function syncRotationValue() {
+    const slider = document.getElementById('rotationDeg');
+    const field = document.getElementById('rotationValue');
+    if (!slider || !field) return;
+
+    const value = Number.parseFloat(slider.value);
+    const displayValue = Number.isFinite(value) ? normalizeRotationDeg(value) : 0;
+    slider.value = String(displayValue);
+    field.value = String(displayValue);
+}
+
+function normalizeRotationDeg(value) {
+    const normalized = Number.isFinite(value) ? value % 360 : 0;
+    return normalized < 0 ? normalized + 360 : normalized;
+}
+
+function setRotationDeg(value) {
+    const slider = document.getElementById('rotationDeg');
+    const field = document.getElementById('rotationValue');
+    if (!slider || !field) return;
+
+    const normalized = normalizeRotationDeg(value);
+    slider.value = String(normalized);
+    field.value = String(normalized);
+    syncRotationValue();
+    refreshActiveFrame();
+}
+
+function adjustRotationDeg(delta) {
+    const slider = document.getElementById('rotationDeg');
+    if (!slider) return;
+
+    const current = Number.parseFloat(slider.value);
+    setRotationDeg((Number.isFinite(current) ? current : 0) + delta);
+}
+
 function getFallbackCenterFromInputs() {
-    const ra = Number.parseFloat(document.getElementById('raDeg').value);
-    const dec = Number.parseFloat(document.getElementById('decDeg').value);
-    if (Number.isFinite(ra) && Number.isFinite(dec)) return { ra, dec };
-    return null;
+    return getRaDecInputs();
 }
 
 function getAladinCenter() {
@@ -296,8 +446,10 @@ function drawAltAzPlanner() {
 
     if (!dateStr) return;
 
-    const ra = parseFloat(document.getElementById("raDeg").value);
-    const dec = parseFloat(document.getElementById("decDeg").value);
+    const centerInputs = getRaDecInputs();
+    if (!centerInputs) return;
+    const ra = centerInputs.ra;
+    const dec = centerInputs.dec;
 
     const minutesPerStep = 15;
     const totalHours = 24;
@@ -767,8 +919,7 @@ function updateOverlayCenteredOnView() {
 function updateRaDec() {
     const center = aladin.getRaDec();
     if (!center) return;
-    document.getElementById('raDeg').value = center[0];
-    document.getElementById('decDeg').value = center[1];
+    syncRaDecInputsFromDegrees(center[0], center[1]);
     updateOverlayCenteredOnView();
 }
 
@@ -785,12 +936,12 @@ function rotateView() {
     if (!aladin) return;
 
     const applyAladinRotation = (deg) => {
-    if (!Number.isFinite(deg)) return;
-    const normalized = ((deg % 360) + 360) % 360;
-    // Aladin warns on 0 because it is treated as invalid internally.
-    // 360° is visually equivalent to 0°.
-    const safeDeg = (Math.abs(normalized) < 1e-12) ? 360 : normalized;
-    aladin.setRotation(safeDeg);
+        if (!Number.isFinite(deg)) return;
+        const normalized = ((deg % 360) + 360) % 360;
+        // Aladin warns on 0 because it is treated as invalid internally.
+        // 360° is visually equivalent to 0°.
+        const safeDeg = (Math.abs(normalized) < 1e-12) ? 360 : normalized;
+        aladin.setRotation(safeDeg);
     };
 
     if (!checked) {
@@ -1009,7 +1160,7 @@ function copyTextToClipboard(text, desc) {
 
 function wireInputs() {
     const ids = [
-    'focalLength','sensorW','sensorH','nx','ny','pixSize', 'rotationDeg',
+    'focalLength','sensorW','sensorH','nx','ny','pixSize',
     'lineWidth','color','opacity','cameraMode', //'gridMode'
     ];
 
@@ -1018,6 +1169,49 @@ function wireInputs() {
     if (!el) return; // extra safety
     el.addEventListener('input', refreshActiveFrame);
     el.addEventListener('change', refreshActiveFrame);
+    });
+
+    const rotationSlider = document.getElementById('rotationDeg');
+    const rotationValue = document.getElementById('rotationValue');
+    const updateRotation = (source) => {
+        const nextValue = readRotationValue(source);
+        setRotationDeg(nextValue);
+    };
+    if (rotationSlider) {
+    rotationSlider.addEventListener('input', () => updateRotation(rotationSlider));
+    rotationSlider.addEventListener('change', () => updateRotation(rotationSlider));
+    }
+    if (rotationValue) {
+    rotationValue.addEventListener('input', () => {
+        updateRotation(rotationValue);
+    });
+    rotationValue.addEventListener('blur', () => {
+        updateRotation(rotationValue);
+    });
+    }
+    syncRotationValue();
+
+    const rotationButtons = [
+    ['btnRotateCcw30', -30],
+    ['btnRotateCcw5', -5],
+    ['btnRotateNearest0mod30', 0],
+    ['btnRotateCw5', 5],
+    ['btnRotateCw30', 30],
+    ];
+
+    rotationButtons.forEach(([id, delta]) => {
+        const button = document.getElementById(id);
+        if (!button) return;
+        if (id === 'btnRotateNearest0mod30') {
+            button.addEventListener('click', () => {
+            const currentRotation = parseFloat(document.getElementById('rotationDeg').value) || 0;
+            const nearest = Math.round(currentRotation / 30) * 30;
+            document.getElementById('rotationDeg').value = nearest;
+            syncRotationValue();
+            refreshActiveFrame();
+            });
+        }
+        button.addEventListener('click', () => adjustRotationDeg(delta));
     });
     
     ['mosaicCols', 'mosaicRows', 'horizontalOverlap', 'verticalOverlap'].forEach(id => {
@@ -1085,11 +1279,42 @@ function wireInputs() {
     });
 
     document.getElementById('btnGotoRaDec').addEventListener('click', () => {
-    const ra = parseFloat(document.getElementById('raDeg').value);
-    const dec = parseFloat(document.getElementById('decDeg').value);
-    if (!(isFinite(ra) && isFinite(dec))) return;
+    const center = getRaDecInputs();
+    if (!center) return;
+    const ra = center.ra;
+    const dec = center.dec;
     aladin.gotoRaDec(ra, dec);
     setTimeout(refreshActiveFrame, 250);
+    });
+
+    const toggleFormatButton = document.getElementById('btnToggleRaDecFormat');
+    if (toggleFormatButton) {
+    toggleFormatButton.addEventListener('click', () => {
+        toggleRaDecDisplayMode();
+        refreshActiveFrame();
+    });
+    }
+
+    // Enter key navigation
+    document.getElementById('targetName').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('btnGotoName').click();
+        }
+    });
+
+    document.getElementById('raDeg').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('btnGotoRaDec').click();
+        }
+    });
+
+    document.getElementById('decDeg').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('btnGotoRaDec').click();
+        }
     });
 }
 
@@ -1115,6 +1340,9 @@ document.getElementById('followView').addEventListener('change', (evt) => {
     if (!aladin) return;
     followView();
 });
+
+updateRaDecLabels();
+syncRaDecInputsFromDegrees(parseAngleInput(document.getElementById('raDeg').value, 'ra') || 0, parseAngleInput(document.getElementById('decDeg').value, 'dec') || 0);
 
 document.getElementById('obsLat').addEventListener('change', () => {
     drawAltAzPlanner();
@@ -1152,7 +1380,12 @@ A.init.then(() => {
     showSimbadPointerControl: false,
     showFullscreenControl: true,
     expandLayersControl: false,
-    showGotoControl: false
+    showLayersControl: false,
+    showFrameControl: false,
+    showGotoPointerControl: true,
+    showGotoControl: true,
+    showSimbadPointer: true,
+    showShare: true,
     });
     aladin.setProjection('SIN');
 
