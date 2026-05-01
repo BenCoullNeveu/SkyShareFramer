@@ -1520,9 +1520,6 @@ function wireInputs() {
         });
     });
 
-    // Ensure the RA/Dec button triggers the same action
-    const btnGotoRaDecEl = document.getElementById('btnGotoRaDec');
-    if (btnGotoRaDecEl) btnGotoRaDecEl.addEventListener('click', gotoRaDecAction);
 
     const toggleFormatButton = document.getElementById('btnToggleRaDecFormat');
     if (toggleFormatButton) {
@@ -1548,20 +1545,6 @@ function wireInputs() {
             document.getElementById('btnGotoName').click();
         }
     });
-
-    // document.getElementById('raDeg').addEventListener('keydown', (e) => {
-    //     if (e.key === 'Enter') {
-    //         e.preventDefault();
-    //         document.getElementById('btnGotoRaDec').click();
-    //     }
-    // });
-
-    // document.getElementById('decDeg').addEventListener('keydown', (e) => {
-    //     if (e.key === 'Enter') {
-    //         e.preventDefault();
-    //         document.getElementById('btnGotoRaDec').click();
-    //     }
-    // });
 
     // if CMD/CTRL + S, trigger the retrievePreview function
     document.addEventListener('keydown', (e) => {
