@@ -11,44 +11,44 @@
     <aside class="panel">
       <h1>SkyShare Astro</h1>
       <h2>Framing Tool</h2>
+      <div class="row" style="margin-bottom:8px;">
+        <label for="simplifiedView" style="font-weight:normal; margin-left:10px;">Simplified view</label>
+        <input id="simplifiedView" type="checkbox" title="Toggle simplified UI" checked />
+      </div>
 
       <div class="group">
         <h2 class="group-title">Target / Center</h2>
         <div class="group-content">
-          <label for="targetName">Object name</label>
-          <input id="targetName" type="text" value="M42" placeholder="e.g. M31, NGC 7000, Betelgeuse" />
+            
 
+            <label for="targetName">Object name</label>
+            <div class="row" style="align-items:center; gap:8px; ">
+              <input id="targetName" type="text" value="M42" placeholder="e.g. M31, NGC 7000, Betelgeuse" />
+              <button id="btnGotoName">Go to name</button>
+            </div>
           <div class="radecrow">
             <div>
-              <label for="raDeg">RA (deg)</label>
-              <input id="raDeg" type="text" value="83.822" />
+              <label for="raDeg">RA (hms)</label>
+              <input id="raDeg" type="text" value="05:35:16.82" />
             </div>
             <div>
-              <label for="decDeg">Dec (deg)</label>
-              <input id="decDeg" type="text" value="-5.391" />
+              <label for="decDeg">Dec (dms)</label>
+              <input id="decDeg" type="text" value="-05:23:15.36" />
             </div>
             <div>
               <button id="btnToggleRaDecFormat" type="button" class="format-toggle" title="Toggle RA/Dec format" aria-label="Toggle RA/Dec format">⇄</button>
             </div>
           </div>
 
-          
-        
-          <div class="btnrow">
-            <button id="btnGotoName">Go to name</button>
-            <button id="btnGotoRaDec">Go to RA/Dec</button>
-          </div>
-
-          <div class="btnrow">
+          <div class="btnrow" id="targetActions">
               <button id="updateRaDec" style="background: rgba(10,14,26,0.8);">Update RA/Dec</button>
               <button id="copyFraming">Copy Framing</button>
           </div>
 
-          <div class="checkboxrow">
+          <div class="checkboxrow" id="followRow">
             <input id="followView" type="checkbox" checked/>
             <label for="followView">Follow view</label>
           </div>
-            
 
 
           <div class="hint">Tip: pan/zoom in Aladin; the overlay stays centered on the current view center unless you “Go to …”.</div>
@@ -118,7 +118,7 @@
       </div>
 
     
-      <div class="group collapsed">
+      <div class="group collapsed" id="altitudeGroup">
         <h2 class="group-title">Altitude Chart</h2>
         <div class="group-content">
 
@@ -138,7 +138,7 @@
 
           <div class="plannerWrap">
               <canvas id="altAzPlot"></canvas>
-              <div id="altAzInfo" class="plannerInfo">Click target curve</div>
+              <div id="altAzInfo" class="plannerInfo">Move cursor over target curve</div>
           </div>
 
           <div class="hint">
@@ -150,7 +150,7 @@
       </div>
 
 
-      <div class="group collapsed">
+      <div class="group collapsed" id="mosaicGroup">
         <h2 class="group-title">Mosaic</h2>
         <div class="group-content">
           <div class="checkboxrow">
@@ -189,7 +189,7 @@
         </div>
       </div>
 
-      <div class="group collapsed">
+      <div class="group collapsed" id="surveyGroup">
         <h2 class="group-title">Survey</h2>
         <div class="group-content">
           <label for="surveySelect">Survey</label>
@@ -208,7 +208,7 @@
       </div>
       
       
-      <div class="group collapsed">
+      <div class="group collapsed" id="overlayGroup">
         <h2 class="group-title">Overlay</h2>
         <div class="group-content">
           <div class="row">
@@ -243,7 +243,7 @@
         </div>
       </div>
 
-      <div class="group collapsed">
+      <div class="group collapsed" id="computedGroup">
         <h2 class="group-title">Computed</h2>
         <div class="group-content">
           <div id="readout" class="readout"></div>

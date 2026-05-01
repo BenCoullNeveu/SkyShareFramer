@@ -4,6 +4,10 @@
 // -------------------------
 // Helpers: geometry + FoV
 // -------------------------
+
+let plannerHoverIndex = -1;
+let plannerCache = null;
+
 const DEG = Math.PI / 180.0;
 let raDecDisplayMode = 'sexagesimal';
 
@@ -705,38 +709,145 @@ function drawAltAzPlanner() {
     // --------------------------------------------------
     // Update readout with textual info about the planner
     // --------------------------------------------------
-    canvas.onclick = function(evt){
+    plannerCache = {
+        canvas, 
+        ctx,
+        points: targetPoints,
+        marginTop, marginBottom,
+        h, w
+    };
+
+    canvas.onmousemove = handlePlannerHover;
+    canvas.onmouseleave = clearPlannerHover;
+    // canvas.onclick = function(evt){
+
+    // const rect = canvas.getBoundingClientRect();
+    // const mx = evt.clientX - rect.left;
+    // const my = evt.clientY - rect.top;
+
+    // let best = null;
+    // let bestDist = 1e9;
+
+    // for (const p of targetPoints){
+
+    //         const dx = p.x - mx;
+    //         const dy = p.y - my;
+    //         const d = Math.hypot(dx, dy);
+
+    //         if (d < bestDist){
+    //             bestDist = d;
+    //             best = p;
+    //         }
+    //     }
+
+    //     if (!best || bestDist > 25) return;
+
+    //     const hh = best.time.getHours().toString().padStart(2,"0");
+    //     const mm = best.time.getMinutes().toString().padStart(2,"0");
+
+    //     document.getElementById("altAzInfo").textContent =
+    // `alt: ${best.alt.toFixed(1)}°
+    // az: ${best.az.toFixed(1)}°
+    // time: ${hh}:${mm}
+    // moon angle: ${best.moonAngle.toFixed(1)}°`;
+    // };
+}
+
+function handlePlannerHover(evt) {
+    if (!plannerCache) return;
+    const {canvas, points } = plannerCache;
 
     const rect = canvas.getBoundingClientRect();
     const mx = evt.clientX - rect.left;
     const my = evt.clientY - rect.top;
 
-    let best = null;
+    let best = -1;
     let bestDist = 1e9;
 
-    for (const p of targetPoints){
+    for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        const d = Math.hypot(p.x - mx, p.y - my);
 
-            const dx = p.x - mx;
-            const dy = p.y - my;
-            const d = Math.hypot(dx, dy);
-
-            if (d < bestDist){
-                bestDist = d;
-                best = p;
-            }
+        if (d < bestDist) {
+            bestDist = d;
+            best = i;
         }
+    }
 
-        if (!best || bestDist > 25) return;
+    if (bestDist > 40) {
+        clearPlannerHover();
+        return;
+    }
 
-        const hh = best.time.getHours().toString().padStart(2,"0");
-        const mm = best.time.getMinutes().toString().padStart(2,"0");
+    plannerHoverIndex = best;
+    drawAltAzPlanner();
+    drawPlannerHoverOverlay();
+}
 
-        document.getElementById("altAzInfo").textContent =
-    `alt: ${best.alt.toFixed(1)}°
-    az: ${best.az.toFixed(1)}°
-    time: ${hh}:${mm}
-    moon angle: ${best.moonAngle.toFixed(1)}°`;
-    };
+function clearPlannerHover() {
+    if (plannerHoverIndex === -1) return;
+    plannerHoverIndex = -1;
+    drawAltAzPlanner();
+
+    const box = document.getElementById("altAzInfo");
+    if (box) box.textContent = "Move cursor over target curve";
+}
+
+function drawPlannerHoverOverlay(){
+
+    if (!plannerCache) return;
+    if (plannerHoverIndex < 0) return;
+
+    const {
+        ctx,
+        points,
+        marginTop,
+        marginBottom,
+        h
+    } = plannerCache;
+
+    const p = points[plannerHoverIndex];
+
+    // vertical marker
+    ctx.save();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.30)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,4]);
+
+    ctx.beginPath();
+    ctx.moveTo(p.x, marginTop);
+    ctx.lineTo(p.x, h - marginBottom);
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+
+    // glow
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(23,226,255,0.20)";
+    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // core dot
+    ctx.beginPath();
+    ctx.fillStyle = "#17e2ff";
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    const hh = p.time.getHours().toString().padStart(2, "0");
+    const mm = p.time.getMinutes().toString().padStart(2, "0");
+
+    const box = document.getElementById("altAzInfo");
+
+    if (box){
+        box.textContent =
+`alt: ${p.alt.toFixed(1)}°
+az: ${p.az.toFixed(1)}°
+time: ${hh}:${mm}
+moon angle: ${p.moonAngle.toFixed(1)}°`;
+    }
 }
 
 // -------------------------
@@ -1158,6 +1269,109 @@ function copyTextToClipboard(text, desc) {
     });
 }
 
+
+function openImageInTab(dataUrl) {
+    const newTab = window.open();
+    if (!newTab) {
+        alert('Failed to open new tab for preview image. Please allow popups and try again.');
+        return;
+    }
+    newTab.document.write(`
+        <html>
+            <head><title>Framing Preview</title></head>
+            <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#000;">
+                <img src="${dataUrl}" alt="Framing Preview" style="max-width:90%; max-height:90%; border: 2px solid #00e5ff; box-shadow: 0 0 20px #00e5ff;">
+            </body>
+        </html>
+    `);
+}
+
+async function retrievePreview() {
+    const center = getRaDecInputs();
+
+    if (!center || !Number.isFinite(center.ra) || !Number.isFinite(center.dec)) {
+        alert("Invalid coordinates.");
+        return;
+    }
+
+    const focal_mm = parseFloat(document.getElementById('focalLength').value);
+    const cam = getCameraParams();
+    if (focal_mm <= 0 || !cam) {
+        alert("Invalid camera parameters.");
+        return;
+    }
+
+    const { fovW_deg, fovH_deg } =
+        computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
+
+    const viewFOV = Math.max(fovW_deg, fovH_deg) * 1.3;
+
+    aladin.setFoV(viewFOV);
+    aladin.gotoRaDec(center.ra, center.dec);
+
+    await new Promise(r => setTimeout(r, 1000));
+
+    const preview = await aladin.getViewDataURL();
+
+    if (!preview?.startsWith("data:image")) {
+        alert("Failed to generate preview.");
+        return;
+    }
+
+    openImageInTab(preview);
+}
+
+function applySimplifiedMode() {
+    const simplifiedEl = document.getElementById('simplifiedView');
+    const simplified = simplifiedEl ? simplifiedEl.checked : false;
+
+    const toggleById = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = simplified ? 'none' : '';
+    };
+
+    // Hide whole groups that are not part of simplified UI (keep altitude chart visible)
+    ['mosaicGroup', 'surveyGroup', 'overlayGroup', 'computedGroup'].forEach(toggleById);
+
+    // Hide the extra actions in Target group (keep goto buttons)
+    toggleById('targetActions');
+
+    // Keep telescope setup select visible but hide parameters
+    toggleById('telescopeParams');
+
+    // Ensure altitude chart is visible and expanded in simplified mode
+    const altitudeGroup = document.getElementById('altitudeGroup');
+    if (altitudeGroup) {
+        if (simplified) {
+            altitudeGroup.style.display = '';
+            altitudeGroup.classList.remove('collapsed');
+        } else {
+            // respect original collapsed state when leaving simplified mode
+            altitudeGroup.classList.add('collapsed');
+        }
+    }
+
+    // Hide mosaic-specific copy button if present
+    const copyMosaic = document.getElementById('copyMosaic');
+    if (copyMosaic) copyMosaic.style.display = simplified ? 'none' : '';
+
+    // Force follow view to be enabled and hide its checkbox when simplified
+    const followRow = document.getElementById('followRow');
+    const followInput = document.getElementById('followView');
+    if (followInput) {
+        followInput.checked = true;
+        followInput.disabled = simplified;
+    }
+    if (followRow) followRow.style.display = simplified ? 'none' : '';
+
+    // When simplified is enabled, ensure the overlay is following right away
+    if (simplified) {
+        try { updateRaDec(); } catch (e) {}
+        try { refreshActiveFrame(); } catch (e) {}
+    }
+}
+
 function wireInputs() {
     const ids = [
     'focalLength','sensorW','sensorH','nx','ny','pixSize',
@@ -1278,14 +1492,37 @@ function wireInputs() {
     refreshActiveFrame();
     });
 
-    document.getElementById('btnGotoRaDec').addEventListener('click', () => {
-    const center = getRaDecInputs();
-    if (!center) return;
-    const ra = center.ra;
-    const dec = center.dec;
-    aladin.gotoRaDec(ra, dec);
-    setTimeout(refreshActiveFrame, 250);
+    // Shared RA/Dec goto action (used by button, change events, and Enter key)
+    const gotoRaDecAction = () => {
+        const center = getRaDecInputs();
+        if (!center) return;
+        const ra = center.ra;
+        const dec = center.dec;
+        try {
+            aladin.gotoRaDec(ra, dec);
+        } catch (e) {
+            console.error('gotoRaDec failed', e);
+        }
+        setTimeout(refreshActiveFrame, 250);
+    };
+
+    // Wire change events
+    ['raDeg', 'decDeg'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', gotoRaDecAction);
+        // also wire Enter key to trigger goto
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                gotoRaDecAction();
+            }
+        });
     });
+
+    // Ensure the RA/Dec button triggers the same action
+    const btnGotoRaDecEl = document.getElementById('btnGotoRaDec');
+    if (btnGotoRaDecEl) btnGotoRaDecEl.addEventListener('click', gotoRaDecAction);
 
     const toggleFormatButton = document.getElementById('btnToggleRaDecFormat');
     if (toggleFormatButton) {
@@ -1295,6 +1532,15 @@ function wireInputs() {
     });
     }
 
+    // Simplified view toggle wiring
+    const simplifiedEl = document.getElementById('simplifiedView');
+    if (simplifiedEl) {
+    simplifiedEl.addEventListener('change', applySimplifiedMode);
+    }
+
+    // Apply mode on init
+    applySimplifiedMode();
+
     // Enter key navigation
     document.getElementById('targetName').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -1303,17 +1549,25 @@ function wireInputs() {
         }
     });
 
-    document.getElementById('raDeg').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            document.getElementById('btnGotoRaDec').click();
-        }
-    });
+    // document.getElementById('raDeg').addEventListener('keydown', (e) => {
+    //     if (e.key === 'Enter') {
+    //         e.preventDefault();
+    //         document.getElementById('btnGotoRaDec').click();
+    //     }
+    // });
 
-    document.getElementById('decDeg').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+    // document.getElementById('decDeg').addEventListener('keydown', (e) => {
+    //     if (e.key === 'Enter') {
+    //         e.preventDefault();
+    //         document.getElementById('btnGotoRaDec').click();
+    //     }
+    // });
+
+    // if CMD/CTRL + S, trigger the retrievePreview function
+    document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
             e.preventDefault();
-            document.getElementById('btnGotoRaDec').click();
+            retrievePreview();
         }
     });
 }

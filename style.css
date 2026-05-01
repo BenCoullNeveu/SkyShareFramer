@@ -216,3 +216,7 @@ button:hover { border-color: #ffffff; }
     font:13px system-ui;
     white-space:pre-line;
 }
+
+#obsLat, #obsLon, label[for="obsLat"], label[for="obsLon"] {
+    display: none;
+}
