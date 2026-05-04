@@ -1269,23 +1269,6 @@ function copyTextToClipboard(text, desc) {
     });
 }
 
-
-function openImageInTab(dataUrl) {
-    const newTab = window.open();
-    if (!newTab) {
-        alert('Failed to open new tab for preview image. Please allow popups and try again.');
-        return;
-    }
-    newTab.document.write(`
-        <html>
-            <head><title>Framing Preview</title></head>
-            <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#000;">
-                <img src="${dataUrl}" alt="Framing Preview" style="max-width:90%; max-height:90%; border: 2px solid #00e5ff; box-shadow: 0 0 20px #00e5ff;">
-            </body>
-        </html>
-    `);
-}
-
 async function retrievePreview() {
     const center = getRaDecInputs();
 
@@ -1309,6 +1292,24 @@ async function retrievePreview() {
     aladin.setFoV(viewFOV);
     aladin.gotoRaDec(center.ra, center.dec);
 
+    // popup window to prevent user from moving the view before preview is generated
+    const previewPopup = window.open('', '_blank','width=1200,height=800,resizable=yes');
+    if (!previewPopup) {
+        alert('Failed to open new tab for preview image. Please allow popups and try again.');
+        return;
+    }
+    previewPopup.document.write(`
+        <html>
+            <head><title>Framing Preview</title></head>
+            <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#000; color:#fff; font-family:sans-serif;">
+                <div style="text-align:center;">
+                    <p>Generating preview...</p>
+                    <p style="font-size:0.9em; color:#aaa;">If this takes too long, try moving the Aladin view slightly to trigger a refresh.</p>
+                </div>
+            </body>
+        </html>
+    `);
+
     await new Promise(r => setTimeout(r, 1000));
 
     const preview = await aladin.getViewDataURL();
@@ -1318,7 +1319,18 @@ async function retrievePreview() {
         return;
     }
 
-    openImageInTab(preview);
+    // first remove loading message:
+    previewPopup.document.body.innerHTML = '';
+    // writing image to window
+    previewPopup.document.write(`
+        <html>
+            <head><title>Framing Preview</title></head>
+            <body style="margin:0; display:flex; justify-content:center; align-items:center; height:100vh; background:#000;">
+                <img src="${preview}" alt="Framing Preview" style="max-width:90%; max-height:90%; border: 2px solid #00e5ff; box-shadow: 0 0 20px #00e5ff;">
+            </body>
+        </html>
+    `);
+
 }
 
 function applySimplifiedMode() {
