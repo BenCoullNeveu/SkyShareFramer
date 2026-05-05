@@ -11,6 +11,63 @@ let plannerCache = null;
 const DEG = Math.PI / 180.0;
 let raDecDisplayMode = 'sexagesimal';
 
+const TIMEZONE = "America/Chicago";
+
+function getLocalHM(date) {
+    const hh = date.getHours().toString().padStart(2, "0");
+    const mm = date.getMinutes().toString().padStart(2, "0");
+    return { hh, mm };
+}
+
+function zonedTimeToUTC(year, month, day, hour, minute, tz) {
+    const dt = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+
+    const fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+    });
+
+    const parts = Object.fromEntries(
+        fmt.formatToParts(dt).map(p => [p.type, p.value])
+    );
+
+    const asUTC = Date.UTC(
+        parts.year,
+        parts.month - 1,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second
+    );
+
+    // difference gives offset
+    return new Date(dt.getTime() - (asUTC - dt.getTime()));
+}
+
+function getZonedHM(date, tz) {
+    const fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+
+    const parts = Object.fromEntries(
+        fmt.formatToParts(date).map(p => [p.type, p.value])
+    );
+
+    return {
+        hh: parts.hour,
+        mm: parts.minute
+    };
+}
+
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
 function pad2(value) {
@@ -458,7 +515,13 @@ function drawAltAzPlanner() {
     const minutesPerStep = 15;
     const totalHours = 24;
 
-    const start = new Date(dateStr + "T12:00:00");
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const start = zonedTimeToUTC(
+        year, month, day,
+        12, 0,
+        "America/Chicago"
+    );
+    
     const samples = Math.floor(totalHours * 60 / minutesPerStep) + 1;
 
     const targetPoints = [];
@@ -656,23 +719,42 @@ function drawAltAzPlanner() {
     }
 
     // -------------------------------------------------
-    // X-axis labels every 6h
+    // X-axis labels (dual axis)
     // -------------------------------------------------
-    ctx.textAlign = "center";
-    ctx.fillStyle = fgText;
 
-    for (let hr = 0; hr <= 24; hr += 6) {
+    ctx.textAlign = "center";
+
+    // spacing between axes
+    const primaryY   = h - 20;  // Central Time
+    const secondaryY = h - 6;   // Local machine time
+
+    for (let hr = 6; hr < 24; hr += 6) {
 
         const idx = Math.round(hr * 60 / minutesPerStep);
         const x = X(idx);
 
         const d = new Date(start.getTime() + hr * 3600000);
 
-        const hh = d.getHours().toString().padStart(2, "0");
-        const mm = d.getMinutes().toString().padStart(2, "0");
+        // --- Central Time (primary) ---
+        const ct = getZonedHM(d, "America/Chicago");
+        
+        ctx.fillStyle = fgText;
+        ctx.fillText(`${ct.hh}:${ct.mm}`, x, primaryY);
 
-        ctx.fillText(`${hh}:${mm}`, x, h - 20);
+        // --- Local machine time (secondary) ---
+        const lt = getLocalHM(d);
+
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.fillText(`${lt.hh}:${lt.mm}`, x, secondaryY);
     }
+
+    ctx.textAlign = "left";
+
+    ctx.fillStyle = fgText;
+    ctx.fillText("CT", marginLeft, primaryY);
+
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillText("Local", marginLeft, secondaryY);
 
     // -------------------------------------------------
     // Legend
