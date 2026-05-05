@@ -751,7 +751,7 @@ function drawAltAzPlanner() {
     ctx.textAlign = "left";
 
     ctx.fillStyle = fgText;
-    ctx.fillText("CT", marginLeft, primaryY);
+    ctx.fillText("Obs.", marginLeft, primaryY);
 
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.fillText("Local", marginLeft, secondaryY);
@@ -918,8 +918,7 @@ function drawPlannerHoverOverlay(){
 
     ctx.restore();
 
-    const hh = p.time.getHours().toString().padStart(2, "0");
-    const mm = p.time.getMinutes().toString().padStart(2, "0");
+    const {hh, mm} = getZonedHM(p.time, TIMEZONE);
 
     const box = document.getElementById("altAzInfo");
 
