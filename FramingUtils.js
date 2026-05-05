@@ -68,6 +68,67 @@ function getZonedHM(date, tz) {
     };
 }
 
+function formatDurationHM(totalMinutes) {
+    const rounded = Math.max(0, Math.round(totalMinutes));
+    const hh = Math.floor(rounded / 60);
+    const mm = rounded % 60;
+    if (hh <= 0) return `${mm}m`;
+    return `${hh}h ${mm.toString().padStart(2, '0')}m`;
+}
+
+function estimateImageableMinutes(points, minTargetAltDeg = 20, astroSunAltDeg = -18) {
+    if (!Array.isArray(points) || points.length < 2) return 0;
+
+    const positiveRange = (v0, v1) => {
+        const eps = 1e-12;
+        const a = v0 > eps;
+        const b = v1 > eps;
+
+        if (a && b) return [0, 1];
+        if (!a && !b) return null;
+
+        const denom = v1 - v0;
+        if (Math.abs(denom) < eps) return null;
+        const cross = clamp((-v0) / denom, 0, 1);
+        return a ? [0, cross] : [cross, 1];
+    };
+
+    let minutes = 0;
+
+    for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i];
+        const p1 = points[i + 1];
+        const dtMinutes = (p1.time.getTime() - p0.time.getTime()) / 60000;
+        if (!(dtMinutes > 0)) continue;
+
+        const targetRange = positiveRange(
+            p0.alt - minTargetAltDeg,
+            p1.alt - minTargetAltDeg
+        );
+        if (!targetRange) continue;
+
+        const darkRange = positiveRange(
+            astroSunAltDeg - p0.sunAlt,
+            astroSunAltDeg - p1.sunAlt
+        );
+        if (!darkRange) continue;
+
+        const overlapStart = Math.max(targetRange[0], darkRange[0]);
+        const overlapEnd = Math.min(targetRange[1], darkRange[1]);
+        if (overlapEnd > overlapStart) {
+            minutes += (overlapEnd - overlapStart) * dtMinutes;
+        }
+    }
+
+    return minutes;
+}
+
+function setPlannerInfoDefault(imageableMinutes) {
+    const box = document.getElementById("altAzInfo");
+    if (!box) return;
+    box.textContent = `Imageable time: ${formatDurationHM(imageableMinutes)}`;
+}
+
 function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
 function pad2(value) {
@@ -638,6 +699,8 @@ function drawAltAzPlanner() {
         const jd = toJulianDate(d);
 
         const aa = radecToAltAz(ra, dec, lat, lon, jd);
+        const sun = sunRaDec(jd);
+        const sunAlt = radecToAltAz(sun.ra, sun.dec, lat, lon, jd).alt;
 
         const moon = moonRaDec(jd);
         const moonAA = radecToAltAz(moon.ra, moon.dec, lat, lon, jd);
@@ -657,6 +720,7 @@ function drawAltAzPlanner() {
             x, y,
             alt: aa.alt,
             az: aa.az,
+            sunAlt,
             moonAngle,
             time: new Date(d)
         });
@@ -717,6 +781,20 @@ function drawAltAzPlanner() {
 
         ctx.setLineDash([]);
     }
+
+    // -------------------------------------------------
+    // 20 degree altitude line
+    // -------------------------------------------------
+    const alt20Y = Y(20);
+    ctx.strokeStyle = "rgba(150,255,180,0.5)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, alt20Y);
+    ctx.lineTo(w - marginRight, alt20Y);
+    ctx.stroke();
+    ctx.setLineDash([]);
 
     // -------------------------------------------------
     // X-axis labels (dual axis)
@@ -788,6 +866,8 @@ function drawAltAzPlanner() {
     ctx.textAlign = "right";
     ctx.fillStyle = fgText;
 
+    const imageableMinutes = estimateImageableMinutes(targetPoints, 20, -18);
+
     // --------------------------------------------------
     // Update readout with textual info about the planner
     // --------------------------------------------------
@@ -796,11 +876,13 @@ function drawAltAzPlanner() {
         ctx,
         points: targetPoints,
         marginTop, marginBottom,
-        h, w
+        h, w,
+        imageableMinutes
     };
 
     canvas.onmousemove = handlePlannerHover;
     canvas.onmouseleave = clearPlannerHover;
+    setPlannerInfoDefault(imageableMinutes);
     // canvas.onclick = function(evt){
 
     // const rect = canvas.getBoundingClientRect();
@@ -870,9 +952,6 @@ function clearPlannerHover() {
     if (plannerHoverIndex === -1) return;
     plannerHoverIndex = -1;
     drawAltAzPlanner();
-
-    const box = document.getElementById("altAzInfo");
-    if (box) box.textContent = "Move cursor over target curve";
 }
 
 function drawPlannerHoverOverlay(){
@@ -893,7 +972,7 @@ function drawPlannerHoverOverlay(){
     // vertical marker
     ctx.save();
 
-    ctx.strokeStyle = "rgba(255,255,255,0.30)";
+    ctx.strokeStyle = "rgba(120,150,255,0.70)";
     ctx.lineWidth = 1;
     ctx.setLineDash([4,4]);
 
@@ -1326,6 +1405,7 @@ function buildFrameCsv() {
     const focal_mm = parseFloat(document.getElementById('focalLength').value);
     if (focal_mm <= 0) return;
     const cam = getCameraParams();
+    let framing;
     if (document.getElementById('mosaicMode')?.checked) {
         const rotationDeg = parseFloat(document.getElementById('rotationDeg').value) || 0;
         const mosaic = getMosaicDimensions();
@@ -1334,7 +1414,7 @@ function buildFrameCsv() {
     else {
         const { fovW_deg, fovH_deg } = computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
         const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
-        const framing = // for a single pane
+        framing = // for a single pane
         `Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column
             Pane 1, ${fmtDegMaybe(center.ra)}, ${fmtDegMaybe(center.dec)}, ${rot.toFixed(2)}°, ${(fovW_deg*60).toFixed(2)}, ${(fovH_deg*60).toFixed(2)}, 0%, -, -`;   
     }
