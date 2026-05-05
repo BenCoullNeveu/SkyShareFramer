@@ -1038,6 +1038,32 @@ function applySurveySettings(key) {
     survey.setColormap("grayscale", { stretch: "asinh", reversed: false });
     survey.setCuts(0, 100);
     }
+
+    if (key === "P/AKARI/FIS/Color") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
+    if (key === "P/AKARI/FIS/N60") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
+    if (key === "P/NSNS/DR0_2/halpha8") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
+    if (key === "P/NSNS/DR0_2/oiii8") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
+    if (key === "P/NSNS/DR0_2/ohs8") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
+    if (key === "P/NSNS/DR0_2/rgb8") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
+
 }
 
 function selectSurvey() {
@@ -1053,7 +1079,20 @@ function selectSurvey() {
     aladin.setImageLayer("P/Finkbeiner");   
     } else if (key === "P/DSS2/red") {
     aladin.setImageLayer("P/DSS2/red");  
-    } else {
+    } else if (key === "P/AKARI/FIS/Color") {
+    aladin.setImageLayer("P/AKARI/FIS/Color");  
+    } else if (key === "P/AKARI/FIS/N60") {
+    aladin.setImageLayer("P/AKARI/FIS/N60");  
+    } else if (key === "P/NSNS/DR0_2/halpha8") {
+    aladin.setImageLayer("P/NSNS/DR0_2/halpha8");  
+    } else if (key === "P/NSNS/DR0_2/oiii8") {
+    aladin.setImageLayer("P/NSNS/DR0_2/oiii8");  
+    } else if (key === "P/NSNS/DR0_2/ohs8") {
+    aladin.setImageLayer("P/NSNS/DR0_2/ohs8");  
+    } else if (key === "P/NSNS/DR0_2/rgb8") {
+    aladin.setImageLayer("P/NSNS/DR0_2/rgb8");
+    }
+    else {
     console.warn("Unknown survey key:", key);
     return;
     }
