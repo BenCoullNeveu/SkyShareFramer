@@ -171,18 +171,26 @@ function parseAngleInput(text, kind) {
     const raw = String(text ?? '').trim();
     if (!raw) return NaN;
 
-    const hasSexagesimalMarkers = /[:hms°'"′″]/i.test(raw);
-    if (!hasSexagesimalMarkers) {
-        const numeric = Number.parseFloat(raw);
+    const normalizedRaw = raw.replace(/\u2212/g, '-');
+    const hasSexagesimalMarkers = /[:hms°'"′″]/i.test(normalizedRaw);
+    const numericParts = normalizedRaw.match(/[+-]?\d+(?:\.\d+)?/g) || [];
+    const hasSpaceSeparatedSexagesimal =
+        numericParts.length >= 2 &&
+        /^[\s+\-.\d]+$/.test(normalizedRaw) &&
+        /\s+/.test(normalizedRaw);
+
+    if (!hasSexagesimalMarkers && !hasSpaceSeparatedSexagesimal) {
+        const numeric = Number.parseFloat(normalizedRaw);
         return Number.isFinite(numeric) ? numeric : NaN;
     }
 
-    const negative = raw.startsWith('-');
-    const cleaned = raw
+    const negative = normalizedRaw.startsWith('-');
+    const cleaned = normalizedRaw
         .toLowerCase()
         .replace(/[h°]/g, ':')
         .replace(/[m'′]/g, ':')
         .replace(/[s"″]/g, '')
+        .replace(/\s+/g, ':')
         .replace(/\s+/g, '');
 
     const parts = cleaned.split(':').filter(Boolean);
@@ -196,6 +204,55 @@ function parseAngleInput(text, kind) {
     if (kind === 'ra') value *= 15;
     if (negative) value *= -1;
     return value;
+}
+
+function parsePastedRaDec(text) {
+    const raw = String(text ?? '').trim();
+    if (!raw) return null;
+
+    const cleaned = raw
+        .replace(/\u2212/g, '-')
+        .replace(/[，]/g, ',')
+        .replace(/\r/g, '\n')
+        .trim();
+
+    const parsePair = (raText, decText) => {
+        const ra = parseAngleInput(raText, 'ra');
+        const dec = parseAngleInput(decText, 'dec');
+        if (!Number.isFinite(ra) || !Number.isFinite(dec)) return null;
+        if (Math.abs(dec) > 90) return null;
+        return { ra: wrap360(ra), dec };
+    };
+
+    const chunkSplit = cleaned.split(/[\t,;\n]+/).map((s) => s.trim()).filter(Boolean);
+    if (chunkSplit.length === 2) {
+        const parsed = parsePair(chunkSplit[0], chunkSplit[1]);
+        if (parsed) return parsed;
+    }
+
+    const signedDecMatch = cleaned.match(/^(.+?)\s+([+-].+)$/);
+    if (signedDecMatch) {
+        const parsed = parsePair(signedDecMatch[1], signedDecMatch[2]);
+        if (parsed) return parsed;
+    }
+
+    const numericOnlyParts = cleaned.match(/[+-]?\d+(?:\.\d+)?/g) || [];
+    if (numericOnlyParts.length === 2 && /^[\s,;\t\n+\-.\d]+$/.test(cleaned)) {
+        const parsed = parsePair(numericOnlyParts[0], numericOnlyParts[1]);
+        if (parsed) return parsed;
+    }
+
+    if (numericOnlyParts.length >= 6) {
+        const firstDecToken = numericOnlyParts[3] || '';
+        if (firstDecToken.startsWith('+') || firstDecToken.startsWith('-')) {
+            const raText = numericOnlyParts.slice(0, 3).join(' ');
+            const decText = numericOnlyParts.slice(3, 6).join(' ');
+            const parsed = parsePair(raText, decText);
+            if (parsed) return parsed;
+        }
+    }
+
+    return null;
 }
 
 function getRaDecInputs() {
@@ -1063,6 +1120,14 @@ function applySurveySettings(key) {
     survey.setColormap({ stretch: "asinh", reversed: false });
     survey.setCuts(0, 100);
     }
+    if (key === "P/NSNS/DR0_2/hbr8") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
+    if (key === "P/NSNS/DR0_2/sii8") {
+    survey.setColormap({ stretch: "asinh", reversed: false });
+    survey.setCuts(0, 100);
+    }
 
 }
 
@@ -1087,8 +1152,12 @@ function selectSurvey() {
     aladin.setImageLayer("P/NSNS/DR0_2/halpha8");  
     } else if (key === "P/NSNS/DR0_2/oiii8") {
     aladin.setImageLayer("P/NSNS/DR0_2/oiii8");  
+    } else if (key === "P/NSNS/DR0_2/sii8") {
+    aladin.setImageLayer("P/NSNS/DR0_2/sii8");  
     } else if (key === "P/NSNS/DR0_2/ohs8") {
     aladin.setImageLayer("P/NSNS/DR0_2/ohs8");  
+    } else if (key === "P/NSNS/DR0_2/hbr8") {
+    aladin.setImageLayer("P/NSNS/DR0_2/hbr8");
     } else if (key === "P/NSNS/DR0_2/rgb8") {
     aladin.setImageLayer("P/NSNS/DR0_2/rgb8");
     }
@@ -1718,10 +1787,21 @@ function wireInputs() {
         setTimeout(refreshActiveFrame, 250);
     };
 
+    const handleRaDecPaste = (event) => {
+        const text = event.clipboardData?.getData('text');
+        const parsed = parsePastedRaDec(text);
+        if (!parsed) return;
+
+        event.preventDefault();
+        syncRaDecInputsFromDegrees(parsed.ra, parsed.dec);
+        gotoRaDecAction();
+    };
+
     // Wire change events
     ['raDeg', 'decDeg'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
+        el.addEventListener('paste', handleRaDecPaste);
         el.addEventListener('change', gotoRaDecAction);
         // also wire Enter key to trigger goto
         el.addEventListener('keydown', (e) => {
