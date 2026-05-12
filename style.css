@@ -90,6 +90,7 @@ input, select {
 input:focus, select:focus { border-color: #fdfdfd; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .radecrow { display: grid; grid-template-columns: 4fr 4fr 1fr; gap: 10px; justify-items: center; align-items: center; }
+.singlebtnrow { display: grid; gap: 10px; margin-top: 12px; }
 .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .btnrowrot { display: grid; grid-template-columns: repeat(5, 1fr); margin-top:-5px }
 

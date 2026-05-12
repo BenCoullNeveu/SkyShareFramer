@@ -1604,7 +1604,18 @@ async function retrievePreview() {
 
 function applySimplifiedMode() {
     const simplifiedEl = document.getElementById('simplifiedView');
-    const simplified = simplifiedEl ? simplifiedEl.checked : false;
+    const simplified = isLiteRoute();
+
+    if (simplifiedEl) {
+        simplifiedEl.checked = simplified;
+        const simplifiedControl = document.getElementById('simplifiedViewControl');
+        if (simplifiedControl) simplifiedControl.style.display = 'none';
+    }
+
+    const desiredPath = simplified ? getLiteRoutePath() : getMainRoutePath();
+    if (window.location.pathname !== desiredPath) {
+        history.replaceState(null, '', desiredPath);
+    }
 
     const toggleById = (id) => {
         const el = document.getElementById(id);
@@ -1615,8 +1626,7 @@ function applySimplifiedMode() {
     // Hide whole groups that are not part of simplified UI (keep altitude chart visible)
     ['mosaicGroup', 'surveyGroup', 'overlayGroup', 'computedGroup'].forEach(toggleById);
 
-    // Hide the extra actions in Target group (keep goto buttons)
-    toggleById('targetActions');
+    toggleById('updateRaDec');
 
     // Keep telescope setup select visible but hide parameters
     toggleById('telescopeParams');
@@ -1648,9 +1658,43 @@ function applySimplifiedMode() {
 
     // When simplified is enabled, ensure the overlay is following right away
     if (simplified) {
-        try { updateRaDec(); } catch (e) {}
         try { refreshActiveFrame(); } catch (e) {}
     }
+}
+
+function isLiteRoute() {
+    const pathname = window.location.pathname.replace(/\/+$/, '');
+    const params = new URLSearchParams(window.location.search);
+
+    if (pathname.endsWith('/main') || pathname.endsWith('/main/index.html')) return false;
+    if (params.has('main')) return false;
+
+    if (pathname.endsWith('/lite') || pathname.endsWith('/lite/index.html')) return true;
+    if (params.has('lite')) return true;
+
+    return true;
+}
+
+function getLiteRoutePath() {
+    const pathname = window.location.pathname.replace(/\/+$/, '');
+    if (pathname.endsWith('/lite')) return pathname;
+    if (pathname.endsWith('/lite/index.html')) return pathname.replace(/\/index\.html$/, '');
+    if (pathname.endsWith('/main')) return pathname.replace(/\/main$/, '/lite');
+    if (pathname.endsWith('/main/index.html')) return pathname.replace(/\/main\/index\.html$/, '/lite');
+
+    const basePath = pathname.replace(/\/index\.html$/, '');
+    return basePath ? `${basePath}/lite` : '/lite';
+}
+
+function getMainRoutePath() {
+    const pathname = window.location.pathname.replace(/\/+$/, '');
+    if (pathname.endsWith('/main')) return pathname;
+    if (pathname.endsWith('/main/index.html')) return pathname.replace(/\/index\.html$/, '');
+    if (pathname.endsWith('/lite')) return pathname.replace(/\/lite$/, '/main');
+    if (pathname.endsWith('/lite/index.html')) return pathname.replace(/\/lite\/index\.html$/, '/main');
+
+    const basePath = pathname.replace(/\/index\.html$/, '');
+    return basePath ? `${basePath}/main` : '/main';
 }
 
 function wireInputs() {
@@ -1819,12 +1863,6 @@ function wireInputs() {
         toggleRaDecDisplayMode();
         refreshActiveFrame();
     });
-    }
-
-    // Simplified view toggle wiring
-    const simplifiedEl = document.getElementById('simplifiedView');
-    if (simplifiedEl) {
-    simplifiedEl.addEventListener('change', applySimplifiedMode);
     }
 
     // Apply mode on init

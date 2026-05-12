@@ -11,9 +11,9 @@
     <aside class="panel">
       <h1>SkyShare Astro</h1>
       <h2>Framing Tool</h2>
-      <div class="row" style="margin-bottom:8px;">
+      <div class="row" id="simplifiedViewControl" style="margin-bottom:8px; display:none;">
         <label for="simplifiedView" style="font-weight:normal; margin-left:10px;">Simplified view</label>
-        <input id="simplifiedView" type="checkbox" title="Toggle simplified UI" checked />
+        <input id="simplifiedView" type="checkbox" title="Toggle simplified UI" />
       </div>
 
       <div class="group">
@@ -40,9 +40,9 @@
             </div>
           </div>
 
-          <div class="btnrow" id="targetActions">
+          <div class="singlebtnrow" id="targetActions">
+              <button id="copyFraming">Update Session</button>
               <button id="updateRaDec" style="background: rgba(10,14,26,0.8);">Update RA/Dec</button>
-              <button id="copyFraming">Copy Framing</button>
           </div>
 
           <div class="checkboxrow" id="followRow">
@@ -173,7 +173,7 @@
           </div>
 
           <div class="btnrow">
-            <button id="copyMosaic">Copy Mosaic</button>
+            <button id="copyMosaic">Update Session</button>
             <button id="updateRaDecMosaic">Update RA/Dec</button>
             <button id="btnAlignFrames" aria-pressed="false">Align Frames</button>
           </div>
