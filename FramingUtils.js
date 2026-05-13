@@ -10,6 +10,7 @@ let plannerCache = null;
 
 const DEG = Math.PI / 180.0;
 let raDecDisplayMode = 'sexagesimal';
+let currentRotationDeg = 0; // Canonical NINA-convention rotation angle [0, 360)
 
 const TIMEZONE = "America/Chicago";
 
@@ -298,46 +299,41 @@ function toggleRaDecDisplayMode() {
     syncRaDecInputsFromDegrees(center.ra, center.dec);
 }
 
-function readRotationValue(source) {
-    if (!source) return NaN;
-    if (typeof source.value === 'string') return Number.parseFloat(source.value);
-    return Number.parseFloat(String(source.textContent || source.innerText || '').replace('°', '').trim());
+function normalizeRotationDeg(value) {
+    const v = Number.isFinite(value) ? value : 0;
+    return ((v % 360) + 360) % 360;
 }
 
-function syncRotationValue() {
+function updateRotationDOMDisplay() {
     const slider = document.getElementById('rotationDeg');
     const field = document.getElementById('rotationValue');
-    if (!slider || !field) return;
-
-    const value = Number.parseFloat(slider.value);
-    const displayValue = Number.isFinite(value) ? normalizeRotationDeg(value) : 0;
-    slider.value = String(displayValue);
-    field.value = String(displayValue);
-}
-
-function normalizeRotationDeg(value) {
-    const normalized = Number.isFinite(value) ? value % 360 : 0;
-    return normalized < 0 ? normalized + 360 : normalized;
+    const displayStr = String(currentRotationDeg);
+    if (slider) slider.value = displayStr;
+    if (field) field.value = displayStr;
 }
 
 function setRotationDeg(value) {
-    const slider = document.getElementById('rotationDeg');
-    const field = document.getElementById('rotationValue');
-    if (!slider || !field) return;
-
-    const normalized = normalizeRotationDeg(value);
-    slider.value = String(normalized);
-    field.value = String(normalized);
-    syncRotationValue();
+    currentRotationDeg = normalizeRotationDeg(value);
+    updateRotationDOMDisplay();
     refreshActiveFrame();
 }
 
 function adjustRotationDeg(delta) {
-    const slider = document.getElementById('rotationDeg');
-    if (!slider) return;
+    setRotationDeg(currentRotationDeg + delta);
+}
 
-    const current = Number.parseFloat(slider.value);
-    setRotationDeg((Number.isFinite(current) ? current : 0) + delta);
+function getRotationFromDOM() {
+    const slider = document.getElementById('rotationDeg');
+    const field = document.getElementById('rotationValue');
+    const source = slider || field;
+    if (!source) return currentRotationDeg;
+    
+    const parsed = Number.parseFloat(
+        typeof source.value === 'string'
+            ? source.value
+            : String(source.textContent || source.innerText || '').replace('°', '').trim()
+    );
+    return Number.isFinite(parsed) ? parsed : currentRotationDeg;
 }
 
 function getFallbackCenterFromInputs() {
@@ -1241,7 +1237,9 @@ function getAlignedPaneRotation(baseCenter, paneCenter, baseRotationDeg) {
     const dir = [projectedX[0] / norm, projectedX[1] / norm, projectedX[2] / norm];
     const xOnEast = dot(dir, paneBasis.east);
     const xOnNorth = dot(dir, paneBasis.north);
-    return Math.atan2(xOnNorth, xOnEast) / DEG;
+    const calculatedRotation = Math.atan2(xOnNorth, xOnEast) / DEG;
+    // Wrap to [0, 360) to match NINA convention storage
+    return (360 - calculatedRotation % 360) % 360;
 }
 
 function updateOverlayCenteredOnView() {
@@ -1253,7 +1251,8 @@ function updateOverlayCenteredOnView() {
     const cam = getCameraParams();
     const { fovW_deg, fovH_deg } = computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
 
-    const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
+    // Use rotation value from DOM (already normalized to NINA convention)
+    const rot = -1*currentRotationDeg;
     const lineWidth = parseInt(document.getElementById('lineWidth').value, 10) || 3;
     const color = (document.getElementById('color').value || '#00e5ff').trim();
     const opacity = clamp(parseFloat(document.getElementById('opacity').value), 0, 1);
@@ -1290,7 +1289,7 @@ function updateOverlayCenteredOnView() {
     lines.push(`FoV (W x H): ${formatDeg(fovW_deg)} x ${formatDeg(fovH_deg)}  (${formatArcmin(fovW_deg)} x ${formatArcmin(fovH_deg)})`);
     if (pixScale) lines.push(`Pixel scale: ${pixScale.toFixed(3)} arcsec/px`);
     lines.push(`Center (ICRS): RA ${fmtDegMaybe(ra0, 6)}, Dec ${fmtDegMaybe(dec0, 6)}`);
-    lines.push(`Rotation: ${rot.toFixed(2)}°`);
+    lines.push(`Rotation: ${currentRotationDeg.toFixed(2)}°`);
     document.getElementById('readout').textContent = lines.join("\n");
     rotateView();
 }
@@ -1327,7 +1326,7 @@ function rotateView() {
     applyAladinRotation(0);
     return;
     }
-    const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
+    const rot = -1*currentRotationDeg;
     applyAladinRotation(rot);
 }
 
@@ -1474,9 +1473,9 @@ function updateMosaicOverlay() {
     if (!(focal_mm > 0)) throw new Error('Focal length must be > 0.');
 
     const cam = getCameraParams();
-    const rotationDeg = parseFloat(document.getElementById('rotationDeg').value) || 0;
+    const rot = -1*currentRotationDeg;
     const mosaic = getMosaicDimensions();
-    const panes = buildMosaicPaneData(center, focal_mm, cam, rotationDeg, mosaic);
+    const panes = buildMosaicPaneData(center, focal_mm, cam, rot, mosaic);
 
     if (typeof mosaicOverlay.setColor === 'function') mosaicOverlay.setColor('#ffb000');
     if (typeof mosaicOverlay.setLineWidth === 'function') mosaicOverlay.setLineWidth(2);
@@ -1497,7 +1496,7 @@ function updateMosaicOverlay() {
     lines.push(`Pane size: ${(panes[0]?.widthArcmin || 0).toFixed(2)} x ${(panes[0]?.heightArcmin || 0).toFixed(2)} arcmin`);
     lines.push(`Total panes: ${panes.length}`);
     lines.push('');
-    lines.push(buildMosaicFramingCsv(center, focal_mm, cam, rotationDeg, mosaic));
+    lines.push(buildMosaicFramingCsv(center, focal_mm, cam, currentRotationDeg, mosaic));
     document.getElementById('readout').textContent = lines.join('\n');
 
     if (!document.getElementById("obsDate").value) {
@@ -1515,16 +1514,14 @@ function buildFrameCsv() {
     const cam = getCameraParams();
     let framing;
     if (document.getElementById('mosaicMode')?.checked) {
-        const rotationDeg = parseFloat(document.getElementById('rotationDeg').value) || 0;
         const mosaic = getMosaicDimensions();
-        framing = buildMosaicFramingCsv(center, focal_mm, cam, rotationDeg, mosaic);
+        framing = buildMosaicFramingCsv(center, focal_mm, cam, currentRotationDeg, mosaic);
     } 
     else {
         const { fovW_deg, fovH_deg } = computeFovDeg(focal_mm, cam.sensorW_mm, cam.sensorH_mm);
-        const rot = parseFloat(document.getElementById('rotationDeg').value) || 0;
         framing = // for a single pane
-        `Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Overlap, Row, Column
-            Pane 1, ${fmtDegMaybe(center.ra)}, ${fmtDegMaybe(center.dec)}, ${rot.toFixed(2)}°, ${(fovW_deg*60).toFixed(2)}, ${(fovH_deg*60).toFixed(2)}, 0%, -, -`;   
+        `Pane, RA, DEC, Position Angle (East), Pane width (arcmins), Pane height (arcmins), Row, Column
+            Pane 1, ${fmtDegMaybe(center.ra)}, ${fmtDegMaybe(center.dec)}, ${currentRotationDeg.toFixed(2)}°, ${(fovW_deg*60).toFixed(2)}, ${(fovH_deg*60).toFixed(2)}, -, -`;   
     }
     return framing;
 }
@@ -1698,6 +1695,10 @@ function getMainRoutePath() {
 }
 
 function wireInputs() {
+    // Initialize rotation state from DOM
+    currentRotationDeg = normalizeRotationDeg(getRotationFromDOM());
+    updateRotationDOMDisplay();
+
     const ids = [
     'focalLength','sensorW','sensorH','nx','ny','pixSize',
     'lineWidth','color','opacity','cameraMode', //'gridMode'
@@ -1713,7 +1714,7 @@ function wireInputs() {
     const rotationSlider = document.getElementById('rotationDeg');
     const rotationValue = document.getElementById('rotationValue');
     const updateRotation = (source) => {
-        const nextValue = readRotationValue(source);
+        const nextValue = getRotationFromDOM();
         setRotationDeg(nextValue);
     };
     if (rotationSlider) {
@@ -1728,7 +1729,6 @@ function wireInputs() {
         updateRotation(rotationValue);
     });
     }
-    syncRotationValue();
 
     const rotationButtons = [
     ['btnRotateCcw30', -30],
@@ -1743,11 +1743,8 @@ function wireInputs() {
         if (!button) return;
         if (id === 'btnRotateNearest0mod30') {
             button.addEventListener('click', () => {
-            const currentRotation = parseFloat(document.getElementById('rotationDeg').value) || 0;
-            const nearest = Math.round(currentRotation / 30) * 30;
-            document.getElementById('rotationDeg').value = nearest;
-            syncRotationValue();
-            refreshActiveFrame();
+            const nearest = Math.round(currentRotationDeg / 30) * 30;
+            setRotationDeg(nearest);
             });
         }
         button.addEventListener('click', () => adjustRotationDeg(delta));
